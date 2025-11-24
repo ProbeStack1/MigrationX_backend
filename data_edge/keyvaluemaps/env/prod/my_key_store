@@ -1,0 +1,23 @@
+{
+  "encrypted" : true,
+  "entry" : [ {
+    "name" : "_3city",
+    "value" : "*****"
+  }, {
+    "name" : "myname",
+    "value" : "*****"
+  }, {
+    "name" : "name",
+    "value" : "*****"
+  }, {
+    "name" : "myemail",
+    "value" : "*****"
+  }, {
+    "name" : "brij",
+    "value" : "*****"
+  }, {
+    "name" : "_2Santosh",
+    "value" : "*****"
+  } ],
+  "name" : "my_key_store"
+}

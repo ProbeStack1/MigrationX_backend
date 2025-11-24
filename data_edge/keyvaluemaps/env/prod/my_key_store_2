@@ -1,0 +1,11 @@
+{
+  "encrypted" : true,
+  "entry" : [ {
+    "name" : "Santosh",
+    "value" : "*****"
+  }, {
+    "name" : "brij",
+    "value" : "*****"
+  } ],
+  "name" : "my_key_store_2"
+}

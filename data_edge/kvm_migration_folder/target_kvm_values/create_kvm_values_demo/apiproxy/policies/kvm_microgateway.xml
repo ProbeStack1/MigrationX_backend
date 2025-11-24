@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<KeyValueMapOperations async="false" continueOnError="false" enabled="true" name="kvm_microgateway" mapIdentifier="microgateway">
+    <DisplayName>kvm_microgateway</DisplayName>
+    <ExclusiveCache>false</ExclusiveCache>
+    <ExpiryTimeInSecs>300</ExpiryTimeInSecs>
+    <InitialEntries>
+       <Entry><Key><Parameter>private_key</Parameter></Key><Value>key123</Value></Entry><Entry><Key><Parameter>public_key</Parameter></Key><Value>key456</Value></Entry><Entry><Key><Parameter>private_key_kid</Parameter></Key><Value>123</Value></Entry><Entry><Key><Parameter>public_key1_kid</Parameter></Key><Value>456</Value></Entry><Entry><Key><Parameter>public_key1</Parameter></Key><Value>7678hjgjhbbmn</Value></Entry>
+      </InitialEntries> 
+   
+    <Scope>environment</Scope>
+</KeyValueMapOperations>

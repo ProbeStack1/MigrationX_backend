@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Manifest name="manifest">
+    <Policies>
+        <VersionInfo resourceName="KVM_DUMMY" version="SHA-512:3e00f06fd84cb7f4d845c4fa9189b80016eab914234e4caa6db0f60ef131b5ce555b86452057e4c7f9ec134321d2e38d48f7d5b285d8640605fd96ee3dd4c9dc"/>
+        <VersionInfo resourceName="get_kvm_values" version="SHA-512:46c6db23430096b5a7c2fcb05320d11760214eccdb37a309ced0557f18647efd3e608c6d6ed3f6148d54669d80429b92369b57dcd7bd9eecb64660e8f945167d"/>
+    </Policies>
+    <ProxyEndpoints>
+        <VersionInfo resourceName="default" version="SHA-512:f3711402a7c469e1331a5cbbb079c2b38ad63eba007fb35d1bd2327608175971d011ecd9d8e7babfe72da284e96454369aa5c6f352e70a646ffdee2374011a4b"/>
+    </ProxyEndpoints>
+    <Resources>
+        <VersionInfo resourceName="jsc://get_kvm_values.js" version="SHA-512:f90ddd77e400dfe6a3fcf479b00b1ee29e7015c5bb8cd70f5f15b4886cc339275ff553fc8a053f8ddc7324f45168cffaf81f8c3ac93996f6536eef38e5e40768"/>
+    </Resources>
+    <SharedFlows/>
+    <TargetEndpoints/>
+</Manifest>

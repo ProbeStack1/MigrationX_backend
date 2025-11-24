@@ -1,0 +1,14 @@
+{
+  "host" : "mocktarget.apigee.net",
+  "isEnabled" : true,
+  "name" : "demoTS",
+  "port" : 443,
+  "sSLInfo" : {
+    "ciphers" : [ ],
+    "clientAuthEnabled" : "false",
+    "enabled" : "true",
+    "ignoreValidationErrors" : false,
+    "protocols" : [ ],
+    "trustStore" : ""
+  }
+}

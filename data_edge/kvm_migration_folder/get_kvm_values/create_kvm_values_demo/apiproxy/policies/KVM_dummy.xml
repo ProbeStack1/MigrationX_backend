@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<KeyValueMapOperations async="false" continueOnError="false" enabled="false" name="KVM_dummy" mapIdentifier="Basic-Auth">
+    <DisplayName>KVM</DisplayName>
+    <ExclusiveCache>false</ExclusiveCache>
+    <ExpiryTimeInSecs>300</ExpiryTimeInSecs>
+    <Get >
+        <Key>
+            <Parameter>backend_username</Parameter>
+        </Key>
+    </Get>
+   
+    <Scope>environment</Scope>
+</KeyValueMapOperations>

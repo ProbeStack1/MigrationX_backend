@@ -1,0 +1,20 @@
+{
+  "encrypted" : true,
+  "entry" : [ {
+    "name" : "unit",
+    "value" : "*****"
+  }, {
+    "name" : "interval",
+    "value" : "*****"
+  }, {
+    "name" : "spikeArrest",
+    "value" : "*****"
+  }, {
+    "name" : "count",
+    "value" : "*****"
+  }, {
+    "name" : "Allowedscopes",
+    "value" : "*****"
+  } ],
+  "name" : "Oauth2testConfig"
+}

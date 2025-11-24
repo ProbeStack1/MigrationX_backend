@@ -1,0 +1,18 @@
+{
+  "apiResources" : [ ],
+  "approvalType" : "auto",
+  "attributes" : [ {
+    "name" : "access",
+    "value" : "public"
+  } ],
+  
+  
+  "description" : "",
+  "displayName" : "testAppProductLimit 3",
+  
+  
+  
+  "name" : "testAppProductLimit_3",
+  "proxies" : [ "playground-service-tickets-1" ],
+  "scopes" : [ ]
+}

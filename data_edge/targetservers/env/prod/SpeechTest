@@ -1,0 +1,6 @@
+{
+  "host" : "10.1.124.41",
+  "isEnabled" : true,
+  "name" : "SpeechTest",
+  "port" : 18080
+}

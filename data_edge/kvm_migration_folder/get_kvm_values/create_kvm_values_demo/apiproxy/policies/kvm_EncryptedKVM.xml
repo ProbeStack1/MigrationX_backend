@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<KeyValueMapOperations async="false" continueOnError="false" enabled="true" name="kvm_EncryptedKVM" mapIdentifier="EncryptedKVM">
+    <DisplayName>kvm_EncryptedKVM</DisplayName>
+    <ExclusiveCache>false</ExclusiveCache>
+    <ExpiryTimeInSecs>300</ExpiryTimeInSecs>
+    <Get  assignTo="private.kvm__EncryptedKVM__kvm__backendcredentials"><Key><Parameter>backendcredentials</Parameter></Key></Get><Get  assignTo="private.kvm__EncryptedKVM__kvm__backendcredentials_first"><Key><Parameter>backendcredentials_first</Parameter></Key></Get>
+   
+    <Scope>environment</Scope>
+</KeyValueMapOperations>

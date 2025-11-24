@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<APIProxy revision="1" name="DemoApiJag">
+  <DisplayName/>
+  <Description/>
+  <CreatedAt>1763626454749</CreatedAt>
+  <LastModifiedAt>1763626802412</LastModifiedAt>
+  <BasePaths>/demoapijag</BasePaths>
+  <ProxyEndpoints>
+    <ProxyEndpoint>default</ProxyEndpoint>
+  </ProxyEndpoints>
+  <TargetEndpoints>
+    <TargetEndpoint>default</TargetEndpoint>
+  </TargetEndpoints>
+  <Policies>
+    <Policy>KVM-Jagruti</Policy>
+    <Policy>FC-demoSF</Policy>
+  </Policies>
+</APIProxy>

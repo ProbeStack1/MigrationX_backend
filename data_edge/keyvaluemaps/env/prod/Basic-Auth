@@ -1,0 +1,14 @@
+{
+  "encrypted" : true,
+  "entry" : [ {
+    "name" : "key_name_literal",
+    "value" : "*****"
+  }, {
+    "name" : "username",
+    "value" : "*****"
+  }, {
+    "name" : "password",
+    "value" : "*****"
+  } ],
+  "name" : "Basic-Auth"
+}

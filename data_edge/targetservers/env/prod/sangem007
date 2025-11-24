@@ -1,0 +1,14 @@
+{
+  "host" : "nitinmahavir2021-eval-test.apigee.net",
+  "isEnabled" : true,
+  "name" : "sangem007",
+  "port" : 443,
+  "sSLInfo" : {
+    "ciphers" : [ ],
+    "clientAuthEnabled" : "false",
+    "enabled" : "true",
+    "ignoreValidationErrors" : false,
+    "protocols" : [ ],
+    "trustStore" : ""
+  }
+}

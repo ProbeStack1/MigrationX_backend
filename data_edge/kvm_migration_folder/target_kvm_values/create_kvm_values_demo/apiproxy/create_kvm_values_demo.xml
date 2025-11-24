@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<APIProxy revision="1" name="create_kvm_values_demo">
+    <Basepaths>/create_kvm_values</Basepaths>
+    <ConfigurationVersion majorVersion="4" minorVersion="0"/>
+    <CreatedAt>1635187661017</CreatedAt>
+    <CreatedBy>nitinmahavir2021@gmail.com</CreatedBy>
+    <Description></Description>
+    <DisplayName>create_kvm_values</DisplayName>
+    <LastModifiedAt>1635187758397</LastModifiedAt>
+    <LastModifiedBy>nitinmahavir2021@gmail.com</LastModifiedBy>
+    <ManifestVersion>SHA-512:987154fdf4c6190ad7961fae7cfe6413d671c01bdd5879987251d63571a8b1c6f66f50cdd566ef0fe0b1cdde77ec90444a9bb16245427b158bebc8d7079b32d4</ManifestVersion>
+    <Policies><Policy>KVM_DUMMY</Policy> <Policy>kvm_Basic-Auth</Policy> <Policy>kvm_EncryptedKVM</Policy> <Policy>kvm_encrypted_store_1</Policy> <Policy>kvm_microgateway</Policy> <Policy>kvm_my_key_store</Policy> <Policy>kvm_my_key_store_2</Policy> <Policy>kvm_my_key_store_3</Policy> <Policy>kvm_Oauth2testConfig</Policy> <Policy>kvm_ProductsKVM</Policy>
+        <Policy>get_kvm_values</Policy>
+    </Policies>
+    <ProxyEndpoints>
+        <ProxyEndpoint>default</ProxyEndpoint>
+    </ProxyEndpoints>
+    <Resources>
+        <Resource>jsc://get_kvm_values.js</Resource>
+    </Resources>
+    <Spec></Spec>
+    <TargetServers/>
+    <TargetEndpoints/>
+</APIProxy>

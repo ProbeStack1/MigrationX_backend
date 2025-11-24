@@ -1,0 +1,13 @@
+{
+  "host" : "httpbin.org",
+  "isEnabled" : true,
+  "name" : "TestServer",
+  "port" : 443,
+  "sSLInfo" : {
+    "ciphers" : [ ],
+    "clientAuthEnabled" : "false",
+    "enabled" : "true",
+    "ignoreValidationErrors" : false,
+    "protocols" : [ ]
+  }
+}

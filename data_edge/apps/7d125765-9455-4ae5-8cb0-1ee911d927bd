@@ -1,0 +1,29 @@
+{
+    "appId": "7d125765-9455-4ae5-8cb0-1ee911d927bd",
+    "attributes": [
+        {
+            "name": "DisplayName",
+            "value": "DemoApp"
+        }
+    ],
+    "createdAt": "1763623809710",
+    "credentials": [
+        {
+            "apiProducts": [
+                {
+                    "apiproduct": "Test-Client-Credentials-Prod",
+                    "status": "approved"
+                }
+            ],
+            "consumerKey": "cy4uA0pBsALH9cmbBWpE2gEld3iG15njDF7jqX3wsTIOaqUe",
+            "consumerSecret": "NivrBfWNuVEvNCVHmSX6GNMqJ8NQBc5Uhlh9ED9Zx5ByzY0xudADG2ftXCFxbCsw",
+            "expiresAt": "-1",
+            "issuedAt": "1763623809800",
+            "status": "approved"
+        }
+    ],
+    "developerId": "18807339-2b27-4d00-a449-81032d974259",
+    "lastModifiedAt": "1763623809710",
+    "name": "DemoApp",
+    "status": "approved"
+}

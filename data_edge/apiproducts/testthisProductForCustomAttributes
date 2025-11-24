@@ -1,0 +1,72 @@
+{
+  "apiResources" : [ "/" ],
+  "approvalType" : "auto",
+  "attributes" : [ {
+    "name" : "File1",
+    "value" : "data1"
+  }, {
+    "name" : "File10",
+    "value" : "data10"
+  }, {
+    "name" : "File11",
+    "value" : "data11"
+  }, {
+    "name" : "File12",
+    "value" : "data12"
+  }, {
+    "name" : "File13",
+    "value" : "data13"
+  }, {
+    "name" : "File14",
+    "value" : "data14"
+  }, {
+    "name" : "File15",
+    "value" : "data15"
+  }, {
+    "name" : "File16",
+    "value" : "data16"
+  }, {
+    "name" : "File17",
+    "value" : "data17"
+  }, {
+    "name" : "File18",
+    "value" : "data18"
+  }, {
+    "name" : "File2",
+    "value" : "data2"
+  }, {
+    "name" : "File3",
+    "value" : "data3"
+  }, {
+    "name" : "File4",
+    "value" : "data4"
+  }, {
+    "name" : "File5",
+    "value" : "data5"
+  }, {
+    "name" : "File6",
+    "value" : "data6"
+  }, {
+    "name" : "File7",
+    "value" : "data7"
+  }, {
+    "name" : "File8",
+    "value" : "data8"
+  }, {
+    "name" : "File9",
+    "value" : "data9"
+  }, {
+    "name" : "access",
+    "value" : "public"
+  } ],
+  
+  
+  "description" : "",
+  "displayName" : "testthisProductForCustomAttributes",
+  
+  
+  
+  "name" : "testthisProductForCustomAttributes",
+  "proxies" : [ "demoProxyForTesting" ],
+  "scopes" : [ ]
+}

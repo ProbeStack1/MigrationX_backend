@@ -1,0 +1,37 @@
+{
+  "apiProducts" : [ ],
+  "appFamily" : "default",
+  "appId" : "4c5db3f4-95da-48a0-9532-ed8430a1ad5a",
+  "attributes" : [ {
+    "name" : "Description",
+    "value" : ""
+  }, {
+    "name" : "DisplayName",
+    "value" : "mark"
+  } ],
+  "callbackUrl" : "",
+  "createdAt" : 1676280788636,
+  "createdBy" : "devportal-serviceaccount@google.com",
+  "credentials" : [ {
+    "apiProducts" : [ {
+      "apiproduct" : "poductForMyProxy",
+      "status" : "approved"
+    }, {
+      "apiproduct" : "CategoryProduct",
+      "status" : "approved"
+    } ],
+    "attributes" : [ ],
+    "consumerKey" : "L8mkW2r0DQ3mnnNe14G2470WXJrBy8bI",
+    "consumerSecret" : "9BrQFQH99XGc5yur",
+    "expiresAt" : -1,
+    "issuedAt" : 1676280788721,
+    "scopes" : [ ],
+    "status" : "approved"
+  } ],
+  "developerId" : "8cd48f67-f150-429d-85f8-9f119a6f9745",
+  "lastModifiedAt" : 1676281090658,
+  "lastModifiedBy" : "devportal-serviceaccount@google.com",
+  "name" : "mark",
+  "scopes" : [ ],
+  "status" : "approved"
+}

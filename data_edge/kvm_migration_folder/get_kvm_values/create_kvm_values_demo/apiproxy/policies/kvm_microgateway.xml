@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<KeyValueMapOperations async="false" continueOnError="false" enabled="true" name="kvm_microgateway" mapIdentifier="microgateway">
+    <DisplayName>kvm_microgateway</DisplayName>
+    <ExclusiveCache>false</ExclusiveCache>
+    <ExpiryTimeInSecs>300</ExpiryTimeInSecs>
+    <Get  assignTo="private.kvm__microgateway__kvm__private_key"><Key><Parameter>private_key</Parameter></Key></Get><Get  assignTo="private.kvm__microgateway__kvm__public_key"><Key><Parameter>public_key</Parameter></Key></Get><Get  assignTo="private.kvm__microgateway__kvm__private_key_kid"><Key><Parameter>private_key_kid</Parameter></Key></Get><Get  assignTo="private.kvm__microgateway__kvm__public_key1_kid"><Key><Parameter>public_key1_kid</Parameter></Key></Get><Get  assignTo="private.kvm__microgateway__kvm__public_key1"><Key><Parameter>public_key1</Parameter></Key></Get>
+   
+    <Scope>environment</Scope>
+</KeyValueMapOperations>

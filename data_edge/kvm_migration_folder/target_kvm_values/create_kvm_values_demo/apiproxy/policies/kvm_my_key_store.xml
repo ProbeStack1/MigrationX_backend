@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<KeyValueMapOperations async="false" continueOnError="false" enabled="true" name="kvm_my_key_store" mapIdentifier="my_key_store">
+    <DisplayName>kvm_my_key_store</DisplayName>
+    <ExclusiveCache>false</ExclusiveCache>
+    <ExpiryTimeInSecs>300</ExpiryTimeInSecs>
+    <InitialEntries>
+       <Entry><Key><Parameter>_3city</Parameter></Key><Value>3city</Value></Entry><Entry><Key><Parameter>myname</Parameter></Key><Value>Santosh Jadhav</Value></Entry><Entry><Key><Parameter>name</Parameter></Key><Value>mumbai</Value></Entry><Entry><Key><Parameter>myemail</Parameter></Key><Value>Santosh K Jadhav</Value></Entry><Entry><Key><Parameter>brij</Parameter></Key><Value>mumbai</Value></Entry><Entry><Key><Parameter>_2Santosh</Parameter></Key><Value>2Santosh</Value></Entry>
+      </InitialEntries> 
+   
+    <Scope>environment</Scope>
+</KeyValueMapOperations>

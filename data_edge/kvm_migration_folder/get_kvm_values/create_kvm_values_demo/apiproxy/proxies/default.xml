@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ProxyEndpoint name="default">
+    <PreFlow name="PreFlow">
+        <Request><Step><Name>kvm_Basic-Auth</Name></Step><Step><Name>kvm_EncryptedKVM</Name></Step><Step><Name>kvm_encrypted_store_1</Name></Step><Step><Name>kvm_microgateway</Name></Step><Step><Name>kvm_my_key_store</Name></Step><Step><Name>kvm_my_key_store_2</Name></Step><Step><Name>kvm_my_key_store_3</Name></Step><Step><Name>kvm_Oauth2testConfig</Name></Step><Step><Name>kvm_ProductsKVM</Name></Step>
+        </Request>
+        <Response>
+            <Step>
+                <Name>get_kvm_values</Name>
+            </Step>
+        </Response>
+    </PreFlow>
+    <Flows/>
+    <PostFlow name="PostFlow">
+        <Request/>
+        <Response/>
+    </PostFlow>
+    <HTTPProxyConnection>
+        <BasePath>/create_kvm_values</BasePath>
+        <VirtualHost>secure</VirtualHost>
+    </HTTPProxyConnection>
+    <RouteRule name="noroute"/>
+</ProxyEndpoint>

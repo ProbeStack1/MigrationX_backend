@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<DataCapture name="DataCapture" continueOnError="false" enabled="true">
+    <DisplayName>DataCapturepolicy</DisplayName>
+    <IgnoreUnresolvedVariables>false</IgnoreUnresolvedVariables>
+    <Capture>
+        <Collect ref="existing-variable" default="0"/>
+        <DataCollector>dc_1</DataCollector>
+    </Capture>
+</DataCapture>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<KeyValueMapOperations async="false" continueOnError="false" enabled="true" name="kvm_my_key_store" mapIdentifier="my_key_store">
+    <DisplayName>kvm_my_key_store</DisplayName>
+    <ExclusiveCache>false</ExclusiveCache>
+    <ExpiryTimeInSecs>300</ExpiryTimeInSecs>
+    <Get  assignTo="private.kvm__my_key_store__kvm___3city"><Key><Parameter>_3city</Parameter></Key></Get><Get  assignTo="private.kvm__my_key_store__kvm__myname"><Key><Parameter>myname</Parameter></Key></Get><Get  assignTo="private.kvm__my_key_store__kvm__name"><Key><Parameter>name</Parameter></Key></Get><Get  assignTo="private.kvm__my_key_store__kvm__myemail"><Key><Parameter>myemail</Parameter></Key></Get><Get  assignTo="private.kvm__my_key_store__kvm__brij"><Key><Parameter>brij</Parameter></Key></Get><Get  assignTo="private.kvm__my_key_store__kvm___2Santosh"><Key><Parameter>_2Santosh</Parameter></Key></Get>
+   
+    <Scope>environment</Scope>
+</KeyValueMapOperations>

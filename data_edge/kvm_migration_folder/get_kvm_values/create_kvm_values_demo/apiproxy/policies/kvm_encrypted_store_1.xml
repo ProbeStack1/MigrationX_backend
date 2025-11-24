@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<KeyValueMapOperations async="false" continueOnError="false" enabled="true" name="kvm_encrypted_store_1" mapIdentifier="encrypted_store_1">
+    <DisplayName>kvm_encrypted_store_1</DisplayName>
+    <ExclusiveCache>false</ExclusiveCache>
+    <ExpiryTimeInSecs>300</ExpiryTimeInSecs>
+    <Get  assignTo="private.kvm__encrypted_store_1__kvm__backend_password"><Key><Parameter>backend_password</Parameter></Key></Get><Get  assignTo="private.kvm__encrypted_store_1__kvm__backend_username"><Key><Parameter>backend_username</Parameter></Key></Get>
+   
+    <Scope>environment</Scope>
+</KeyValueMapOperations>

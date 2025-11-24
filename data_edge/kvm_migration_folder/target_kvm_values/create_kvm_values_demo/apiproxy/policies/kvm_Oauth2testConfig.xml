@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<KeyValueMapOperations async="false" continueOnError="false" enabled="true" name="kvm_Oauth2testConfig" mapIdentifier="Oauth2testConfig">
+    <DisplayName>kvm_Oauth2testConfig</DisplayName>
+    <ExclusiveCache>false</ExclusiveCache>
+    <ExpiryTimeInSecs>300</ExpiryTimeInSecs>
+    <InitialEntries>
+       <Entry><Key><Parameter>unit</Parameter></Key><Value>unitval</Value></Entry><Entry><Key><Parameter>interval</Parameter></Key><Value>intervalval</Value></Entry><Entry><Key><Parameter>spikeArrest</Parameter></Key><Value>spikeArrestval</Value></Entry><Entry><Key><Parameter>count</Parameter></Key><Value>countval</Value></Entry><Entry><Key><Parameter>Allowedscopes</Parameter></Key><Value>minute</Value></Entry>
+      </InitialEntries> 
+   
+    <Scope>environment</Scope>
+</KeyValueMapOperations>

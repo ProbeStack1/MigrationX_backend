@@ -1,0 +1,13 @@
+{
+  "host" : "mocktarget.apigee.net",
+  "isEnabled" : true,
+  "name" : "TargetServer2",
+  "port" : 443,
+  "sSLInfo" : {
+    "ciphers" : [ ],
+    "clientAuthEnabled" : "false",
+    "enabled" : "true",
+    "ignoreValidationErrors" : false,
+    "protocols" : [ ]
+  }
+}

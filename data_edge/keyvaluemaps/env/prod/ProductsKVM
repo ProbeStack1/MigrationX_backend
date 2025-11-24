@@ -1,0 +1,11 @@
+{
+  "encrypted" : true,
+  "entry" : [ {
+    "name" : "backendSecret",
+    "value" : "*****"
+  }, {
+    "name" : "backendId",
+    "value" : "*****"
+  } ],
+  "name" : "ProductsKVM"
+}

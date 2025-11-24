@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<KeyValueMapOperations async="false" continueOnError="false" enabled="true" name="kvm_Basic-Auth" mapIdentifier="Basic-Auth">
+    <DisplayName>kvm_Basic-Auth</DisplayName>
+    <ExclusiveCache>false</ExclusiveCache>
+    <ExpiryTimeInSecs>300</ExpiryTimeInSecs>
+    <InitialEntries>
+       <Entry><Key><Parameter>key_name_literal</Parameter></Key><Value>v1</Value></Entry><Entry><Key><Parameter>username</Parameter></Key><Value>santosh123</Value></Entry><Entry><Key><Parameter>password</Parameter></Key><Value>secret123</Value></Entry>
+      </InitialEntries> 
+   
+    <Scope>environment</Scope>
+</KeyValueMapOperations>

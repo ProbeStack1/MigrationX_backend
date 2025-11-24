@@ -1,0 +1,11 @@
+{
+  "encrypted" : true,
+  "entry" : [ {
+    "name" : "backend_password",
+    "value" : "*****"
+  }, {
+    "name" : "backend_username",
+    "value" : "*****"
+  } ],
+  "name" : "encrypted_store_1"
+}

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<KeyValueMapOperations async="false" continueOnError="false" enabled="true" name="kvm_encrypted_store_1" mapIdentifier="encrypted_store_1">
+    <DisplayName>kvm_encrypted_store_1</DisplayName>
+    <ExclusiveCache>false</ExclusiveCache>
+    <ExpiryTimeInSecs>300</ExpiryTimeInSecs>
+    <InitialEntries>
+       <Entry><Key><Parameter>backend_password</Parameter></Key><Value>null</Value></Entry><Entry><Key><Parameter>backend_username</Parameter></Key><Value>12355656757</Value></Entry>
+      </InitialEntries> 
+   
+    <Scope>environment</Scope>
+</KeyValueMapOperations>

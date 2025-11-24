@@ -1,0 +1,11 @@
+{
+  "encrypted" : true,
+  "entry" : [ {
+    "name" : "city",
+    "value" : "*****"
+  }, {
+    "name" : "name",
+    "value" : "*****"
+  } ],
+  "name" : "my_key_store_3"
+}

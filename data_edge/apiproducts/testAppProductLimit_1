@@ -1,0 +1,18 @@
+{
+  "apiResources" : [ ],
+  "approvalType" : "auto",
+  "attributes" : [ {
+    "name" : "access",
+    "value" : "public"
+  } ],
+  
+  
+  "description" : "",
+  "displayName" : "testAppProductLimit 1",
+  
+  
+  
+  "name" : "testAppProductLimit_1",
+  "proxies" : [ "playground-dcim-v1" ],
+  "scopes" : [ ]
+}

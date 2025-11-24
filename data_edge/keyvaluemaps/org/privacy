@@ -1,0 +1,11 @@
+{
+  "encrypted" : true,
+  "entry" : [ {
+    "name" : "privacyContact:[{\"title\":\"Data Protection Officer\"},{\"title\":\"EU Representative\"}]",
+    "value" : "*****"
+  }, {
+    "name" : "enableTraceConsent:{\"name\":\"\",\"timestamp\":0,\"consent\":true}",
+    "value" : "*****"
+  } ],
+  "name" : "privacy"
+}

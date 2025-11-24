@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<KeyValueMapOperations async="false" continueOnError="false" enabled="true" name="kvm_Basic-Auth" mapIdentifier="Basic-Auth">
+    <DisplayName>kvm_Basic-Auth</DisplayName>
+    <ExclusiveCache>false</ExclusiveCache>
+    <ExpiryTimeInSecs>300</ExpiryTimeInSecs>
+    <Get  assignTo="private.kvm__Basic-Auth__kvm__key_name_literal"><Key><Parameter>key_name_literal</Parameter></Key></Get><Get  assignTo="private.kvm__Basic-Auth__kvm__username"><Key><Parameter>username</Parameter></Key></Get><Get  assignTo="private.kvm__Basic-Auth__kvm__password"><Key><Parameter>password</Parameter></Key></Get>
+   
+    <Scope>environment</Scope>
+</KeyValueMapOperations>

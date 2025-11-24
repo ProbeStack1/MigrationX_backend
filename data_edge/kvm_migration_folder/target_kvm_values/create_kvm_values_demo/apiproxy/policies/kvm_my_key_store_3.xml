@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<KeyValueMapOperations async="false" continueOnError="false" enabled="true" name="kvm_my_key_store_3" mapIdentifier="my_key_store_3">
+    <DisplayName>kvm_my_key_store_3</DisplayName>
+    <ExclusiveCache>false</ExclusiveCache>
+    <ExpiryTimeInSecs>300</ExpiryTimeInSecs>
+    <InitialEntries>
+       <Entry><Key><Parameter>city</Parameter></Key><Value>cityval</Value></Entry><Entry><Key><Parameter>name</Parameter></Key><Value>mumbai</Value></Entry>
+      </InitialEntries> 
+   
+    <Scope>environment</Scope>
+</KeyValueMapOperations>

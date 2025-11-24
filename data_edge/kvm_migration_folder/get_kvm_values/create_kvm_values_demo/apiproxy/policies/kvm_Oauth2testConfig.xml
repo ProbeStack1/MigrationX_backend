@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<KeyValueMapOperations async="false" continueOnError="false" enabled="true" name="kvm_Oauth2testConfig" mapIdentifier="Oauth2testConfig">
+    <DisplayName>kvm_Oauth2testConfig</DisplayName>
+    <ExclusiveCache>false</ExclusiveCache>
+    <ExpiryTimeInSecs>300</ExpiryTimeInSecs>
+    <Get  assignTo="private.kvm__Oauth2testConfig__kvm__unit"><Key><Parameter>unit</Parameter></Key></Get><Get  assignTo="private.kvm__Oauth2testConfig__kvm__interval"><Key><Parameter>interval</Parameter></Key></Get><Get  assignTo="private.kvm__Oauth2testConfig__kvm__spikeArrest"><Key><Parameter>spikeArrest</Parameter></Key></Get><Get  assignTo="private.kvm__Oauth2testConfig__kvm__count"><Key><Parameter>count</Parameter></Key></Get><Get  assignTo="private.kvm__Oauth2testConfig__kvm__Allowedscopes"><Key><Parameter>Allowedscopes</Parameter></Key></Get>
+   
+    <Scope>environment</Scope>
+</KeyValueMapOperations>

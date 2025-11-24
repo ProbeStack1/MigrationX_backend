@@ -1,0 +1,27 @@
+{
+  "apiResources" : [ "/" ],
+  "approvalType" : "auto",
+  "attributes" : [ {
+    "name" : "access",
+    "value" : "public"
+  }, {
+    "name" : "file1",
+    "value" : "xml_file"
+  }, {
+    "name" : "file2",
+    "value" : "txt_file"
+  }, {
+    "name" : "file3",
+    "value" : "yaml_file"
+  } ],
+  
+  
+  "description" : "",
+  "displayName" : "testProxySFSize_product",
+  
+  
+  
+  "name" : "testProxySFSize_product",
+  "proxies" : [ "testProxySFSize" ],
+  "scopes" : [ ]
+}

@@ -1,0 +1,34 @@
+{
+  "apiProducts" : [ ],
+  "appFamily" : "default",
+  "appId" : "d19ee4f4-9f0c-48b0-b825-ff931d3da0ff",
+  "attributes" : [ {
+    "name" : "DisplayName",
+    "value" : "demo-auth-v2"
+  }, {
+    "name" : "Notes",
+    "value" : ""
+  } ],
+  "callbackUrl" : "",
+  "createdAt" : 1692880351681,
+  "createdBy" : "nitinmahavir2021@gmail.com",
+  "credentials" : [ {
+    "apiProducts" : [ {
+      "apiproduct" : "demo-basic-aouth",
+      "status" : "approved"
+    } ],
+    "attributes" : [ ],
+    "consumerKey" : "OtunApuzKd6vbpNeABwA15nrFrny5G3r",
+    "consumerSecret" : "6azDRzDQECJY4AHn",
+    "expiresAt" : -1,
+    "issuedAt" : 1692880352149,
+    "scopes" : [ ],
+    "status" : "approved"
+  } ],
+  "developerId" : "eba74dec-a835-4f1e-8ab6-0603ca482be6",
+  "lastModifiedAt" : 1692881415510,
+  "lastModifiedBy" : "nitinmahavir2021@gmail.com",
+  "name" : "demo-auth-v2",
+  "scopes" : [ ],
+  "status" : "approved"
+}

@@ -1,0 +1,18 @@
+{
+  "apiResources" : [ ],
+  "approvalType" : "auto",
+  "attributes" : [ {
+    "name" : "access",
+    "value" : "public"
+  } ],
+  
+  
+  "description" : "",
+  "displayName" : "testAppProductLimit 2",
+  
+  
+  
+  "name" : "testAppProductLimit_2",
+  "proxies" : [ "playground-remotehands-1" ],
+  "scopes" : [ ]
+}

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<KeyValueMapOperations async="false" continueOnError="false" enabled="true" name="kvm_EncryptedKVM" mapIdentifier="EncryptedKVM">
+    <DisplayName>kvm_EncryptedKVM</DisplayName>
+    <ExclusiveCache>false</ExclusiveCache>
+    <ExpiryTimeInSecs>300</ExpiryTimeInSecs>
+    <InitialEntries>
+       <Entry><Key><Parameter>backendcredentials</Parameter></Key><Value>null</Value></Entry><Entry><Key><Parameter>backendcredentials_first</Parameter></Key><Value>244565rryy</Value></Entry>
+      </InitialEntries> 
+   
+    <Scope>environment</Scope>
+</KeyValueMapOperations>

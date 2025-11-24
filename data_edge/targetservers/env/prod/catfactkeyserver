@@ -1,0 +1,14 @@
+{
+  "host" : "catfact.ninja",
+  "isEnabled" : true,
+  "name" : "catfactkeyserver",
+  "port" : 443,
+  "sSLInfo" : {
+    "ciphers" : [ ],
+    "clientAuthEnabled" : "false",
+    "enabled" : "true",
+    "ignoreValidationErrors" : false,
+    "protocols" : [ ],
+    "trustStore" : ""
+  }
+}

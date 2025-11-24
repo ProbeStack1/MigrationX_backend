@@ -1,0 +1,14 @@
+{
+  "host" : "asc-std-dev-gapi01-dcim-service.dev-api.digitalrealty.com",
+  "isEnabled" : true,
+  "name" : "dcim",
+  "port" : 443,
+  "sSLInfo" : {
+    "ciphers" : [ ],
+    "clientAuthEnabled" : "false",
+    "enabled" : "true",
+    "ignoreValidationErrors" : false,
+    "protocols" : [ ],
+    "trustStore" : ""
+  }
+}

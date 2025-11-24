@@ -1,0 +1,11 @@
+{
+  "encrypted" : true,
+  "entry" : [ {
+    "name" : "backendcredentials",
+    "value" : "*****"
+  }, {
+    "name" : "backendcredentials_first",
+    "value" : "*****"
+  } ],
+  "name" : "EncryptedKVM"
+}

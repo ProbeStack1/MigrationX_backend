@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<KeyValueMapOperations async="false" continueOnError="false" enabled="true" name="kvm_ProductsKVM" mapIdentifier="ProductsKVM">
+    <DisplayName>kvm_ProductsKVM</DisplayName>
+    <ExclusiveCache>false</ExclusiveCache>
+    <ExpiryTimeInSecs>300</ExpiryTimeInSecs>
+    <InitialEntries>
+       <Entry><Key><Parameter>backendSecret</Parameter></Key><Value>backendSecretval</Value></Entry><Entry><Key><Parameter>backendId</Parameter></Key><Value>676578788y</Value></Entry>
+      </InitialEntries> 
+   
+    <Scope>environment</Scope>
+</KeyValueMapOperations>

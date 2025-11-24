@@ -1,0 +1,14 @@
+{
+  "host" : "httpbin.org",
+  "isEnabled" : true,
+  "name" : "mock-target-server-demo",
+  "port" : 443,
+  "sSLInfo" : {
+    "ciphers" : [ ],
+    "clientAuthEnabled" : "false",
+    "enabled" : "true",
+    "ignoreValidationErrors" : false,
+    "protocols" : [ ],
+    "trustStore" : ""
+  }
+}
