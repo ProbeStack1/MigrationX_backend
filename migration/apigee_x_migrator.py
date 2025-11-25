@@ -621,6 +621,19 @@ class ApigeeXMigrator:
                 )
             )
 
+        # ---------- Apps ---------- 👈 ADD THIS
+        app_dir = os.path.join(self.folder_name, "apps")
+        if os.path.exists(app_dir):
+            for f in os.listdir(app_dir):
+                tasks.append(
+                    loop.run_in_executor(
+                        executor,
+                        self.migrate_with_retry,
+                        self.migrate_app,
+                        f
+                    )
+                )
+
         # ---------- Products ----------
         prod_dir = os.path.join(self.folder_name, "apiproducts")
         for f in os.listdir(prod_dir):
