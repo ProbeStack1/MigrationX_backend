@@ -322,6 +322,110 @@ class ApigeeXMigrator:
                 "message": f"Error: {str(e)}"
             }
     
+    def migrate_app(self, app_filename: str) -> Dict[str, Any]:
+        """
+        Migrate a single developer app.
+        
+        Args:
+            app_filename: Name of the app file
+            
+        Returns:
+            Dictionary with migration result
+        """
+        try:
+            app_path = os.path.join(self.folder_name, "apps", app_filename)
+            
+            with open(app_path, 'r') as file:
+                data = json.load(file)
+            
+            app_name = data.get('name', '')
+            developer_id = data.get('developerId', '')
+            
+            # Try to get developer email from the developer file
+            dev_dir = os.path.join(self.folder_name, "developers")
+            developer_email = None
+            
+            # Search for developer by ID
+            for dev_file in os.listdir(dev_dir):
+                dev_path = os.path.join(dev_dir, dev_file)
+                with open(dev_path, 'r') as f:
+                    dev_data = json.load(f)
+                    if dev_data.get('developerId') == developer_id:
+                        developer_email = dev_data.get('email')
+                        break
+            
+            if not developer_email:
+                return {
+                    "resource_type": "app",
+                    "resource_name": app_filename,
+                    "status_code": 400,
+                    "success": False,
+                    "message": f"Developer not found for app {app_name}"
+                }
+            
+            # Check if app already exists
+            app_check_url = f"{self.apigeex_mgmt_url}{self.apigeex_org_name}/developers/{developer_email}/apps/{app_name}"
+            headers = {"Authorization": f"Bearer {self.apigeex_token}"}
+            check_response = requests.get(app_check_url, headers=headers)
+            
+            if check_response.status_code == 200:
+                return {
+                    "resource_type": "app",
+                    "resource_name": app_filename,
+                    "status_code": 409,
+                    "success": False,
+                    "message": f"App '{app_name}' already exists"
+                }
+            
+            # Clean up app data - remove Edge-specific fields
+            app_data = {
+                "name": data.get('name'),
+                "status": data.get('status'),
+                "apiProducts": [],
+                "callbackUrl": data.get('callbackUrl', ''),
+                "attributes": data.get('attributes', [])
+            }
+            
+            # Extract API products from credentials
+            credentials = data.get('credentials', [])
+            api_products = []
+            for cred in credentials:
+                for prod in cred.get('apiProducts', []):
+                    prod_name = prod.get('apiproduct')
+                    if prod_name and prod_name not in api_products:
+                        api_products.append(prod_name)
+            
+            app_data['apiProducts'] = api_products
+            
+            # Migrate the app
+            status_code, response_text = MigrateResources.Migrate_app(
+                self.apigeex_mgmt_url,
+                self.apigeex_org_name,
+                self.apigeex_token,
+                developer_email,
+                app_data
+            )
+            
+            result = {
+                "resource_type": "app",
+                "resource_name": app_filename,
+                "status_code": status_code,
+                "success": status_code == 201,
+                "message": "App migrated successfully" if status_code == 201 else f"Migration failed: {response_text}"
+            }
+            
+            self._log_migration(result)
+            return result
+            
+        except Exception as e:
+            return {
+                "resource_type": "app",
+                "resource_name": app_filename,
+                "status_code": 500,
+                "success": False,
+                "message": f"Error: {str(e)}"
+            }
+    
     def migrate_proxy(self, proxy_name: str) -> Dict[str, Any]:
         """
         Migrate a single API proxy.
