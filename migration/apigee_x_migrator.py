@@ -621,7 +621,7 @@ class ApigeeXMigrator:
                 )
             )
 
-        # ---------- Apps ---------- 👈 ADD THIS
+        # ---------- Apps ----------
         app_dir = os.path.join(self.folder_name, "apps")
         if os.path.exists(app_dir):
             for f in os.listdir(app_dir):
