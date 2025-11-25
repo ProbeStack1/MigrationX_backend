@@ -530,7 +530,8 @@ async def migrate_single_resource(payload: Dict[str, Any]):
             "kvm": "kvm",
             "api_product": "apiproduct",
             "apiproduct": "apiproduct",
-            "developer": "developer"
+            "developer": "developer",
+            "app": "app"
         }
 
         raw_type = resource_type
@@ -559,6 +560,9 @@ async def migrate_single_resource(payload: Dict[str, Any]):
 
         elif resource_type == "apiproduct":
             result = migrator.migrate_product(resource_name)
+
+        elif resource_type == "app":
+            result = migrator.migrate_app(resource_name)
 
         elif resource_type == "proxy":
             result = migrator.migrate_proxy(resource_name.replace(".zip", ""))
@@ -654,13 +658,10 @@ app.router.lifespan_context = lifespan
 
 # === Allow python server.py to directly run the API ===
 if __name__ == "__main__":
-    import os
     import uvicorn
-
-    port = int(os.environ.get("PORT", 8080))  # Cloud Run sets PORT automatically
     uvicorn.run(
         "server:app",
         host="0.0.0.0",
-        port=port,
-        reload=False  # Disable auto-reload in production
+        port=8000,
+        reload=True,
     )
