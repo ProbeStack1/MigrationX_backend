@@ -13,6 +13,15 @@ import asyncio
 from fastapi import HTTPException, BackgroundTasks
 from datetime import datetime, timezone
 import asyncio
+
+# Firestore imports
+try:
+    from google.cloud import firestore
+    FIRESTORE_AVAILABLE = True
+except ImportError:
+    FIRESTORE_AVAILABLE = False
+    print("[WARNING] Firestore not available - install google-cloud-firestore")
+
 # In-memory storage when MongoDB is not available
 _in_memory_config = None
 # Import migration models and engine
@@ -28,12 +37,26 @@ import json
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
+# Firestore initialization
+firestore_db = None
+if FIRESTORE_AVAILABLE:
+    try:
+        # Initialize Firestore client
+        # If running on GCP, credentials are automatically detected
+        # For local development, set GOOGLE_APPLICATION_CREDENTIALS env var
+        firestore_db = firestore.Client()
+        print("[OK] Firestore connected")
+    except Exception as e:
+        print(f"[WARNING] Firestore not available: {e}")
+        print("[WARNING] Edge configuration will not be persisted to Firestore")
+        firestore_db = None
+
 # MongoDB connection (optional)
 mongo_url = os.environ.get("MONGO_URL", "").strip().lower()
 
 # Check if MongoDB is disabled
 if mongo_url in ["none", "no", "false", "0", ""]:
-    print("⚠ MongoDB disabled – running in NO-DATABASE mode")
+    print("[WARNING] MongoDB disabled - running in NO-DATABASE mode")
     client = None
     db = None
 
@@ -42,15 +65,42 @@ else:
         client = AsyncIOMotorClient(mongo_url, serverSelectionTimeoutMS=5000)
         db = client[os.environ.get('DB_NAME', 'apigee_migration')]
         client.server_info()  # Test the connection
-        print("✓ MongoDB connected")
+        print("[OK] MongoDB connected")
     except Exception as e:
-        print(f"⚠ MongoDB not available: {e}")
-        print("⚠ Running in no-database mode (configuration will not persist)")
+        print(f"[WARNING] MongoDB not available: {e}")
+        print("[WARNING] Running in no-database mode (configuration will not persist)")
         client = None
         db = None
 
 # Create the main app without a prefix
 app = FastAPI(title="Apigee Edge to X Migration API")
+
+# CORS Configuration - MUST be set up BEFORE including routers
+cors_origins_env = os.environ.get('CORS_ORIGINS', '').strip()
+if cors_origins_env:
+    # If CORS_ORIGINS is set, use it
+    allowed_origins = [origin.strip() for origin in cors_origins_env.split(',') if origin.strip()]
+else:
+    # Default to common development origins
+    allowed_origins = [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
+    ]
+
+# Store allowed_origins for use in exception handlers
+ALLOWED_ORIGINS = allowed_origins
+
+# Add CORS middleware BEFORE including routers (important for proper CORS handling)
+app.add_middleware(
+    CORSMiddleware,
+    allow_credentials=True,
+    allow_origins=allowed_origins,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=["*"],
+    expose_headers=["*"],
+)
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -82,6 +132,9 @@ async def root():
 
 @api_router.get("/status", response_model=List[StatusCheck])
 async def get_status_checks():
+    if db is None:
+        return []
+    
     status_checks = await db.status_checks.find({}, {"_id": 0}).to_list(1000)
     
     for check in status_checks:
@@ -225,34 +278,60 @@ async def get_migration_progress(job_id: str):
         return engine.get_progress()
     
     # If not active, get from database
-    job = await db.migration_jobs.find_one({"id": job_id}, {"_id": 0})
-    if not job:
+    if db is not None:
+        job = await db.migration_jobs.find_one({"id": job_id}, {"_id": 0})
+        if job:
+            return {
+                "status": job.get("status"),
+                "total_resources": job.get("total_resources", 0),
+                "completed_resources": job.get("completed_resources", 0),
+                "failed_resources": job.get("failed_resources", 0),
+                "progress_percentage": (
+                    (job.get("completed_resources", 0) / job.get("total_resources", 1) * 100)
+                    if job.get("total_resources", 0) > 0 else 0
+                ),
+                "logs": job.get("logs", [])[-10:]
+            }
+    
+    # Check in-memory storage
+    job_dict = next((j for j in migration_jobs_memory if j["id"] == job_id), None)
+    if not job_dict:
         raise HTTPException(status_code=404, detail="Migration job not found")
     
     return {
-        "status": job.get("status"),
-        "total_resources": job.get("total_resources", 0),
-        "completed_resources": job.get("completed_resources", 0),
-        "failed_resources": job.get("failed_resources", 0),
+        "status": job_dict.get("status"),
+        "total_resources": job_dict.get("total_resources", 0),
+        "completed_resources": job_dict.get("completed_resources", 0),
+        "failed_resources": job_dict.get("failed_resources", 0),
         "progress_percentage": (
-            (job.get("completed_resources", 0) / job.get("total_resources", 1) * 100)
-            if job.get("total_resources", 0) > 0 else 0
+            (job_dict.get("completed_resources", 0) / job_dict.get("total_resources", 1) * 100)
+            if job_dict.get("total_resources", 0) > 0 else 0
         ),
-        "logs": job.get("logs", [])[-10:]
+        "logs": job_dict.get("logs", [])[-10:] if isinstance(job_dict.get("logs"), list) else []
     }
 
 @api_router.get("/migrations/{job_id}/logs")
 async def get_migration_logs(job_id: str):
     """Get migration logs"""
-    job = await db.migration_jobs.find_one({"id": job_id}, {"_id": 0})
+    # Try database first
+    if db is not None:
+        job = await db.migration_jobs.find_one({"id": job_id}, {"_id": 0})
+        if job:
+            return {
+                "logs": job.get("logs", []),
+                "errors": job.get("errors", []),
+                "warnings": job.get("warnings", [])
+            }
     
-    if not job:
+    # Check in-memory storage
+    job_dict = next((j for j in migration_jobs_memory if j["id"] == job_id), None)
+    if not job_dict:
         raise HTTPException(status_code=404, detail="Migration job not found")
     
     return {
-        "logs": job.get("logs", []),
-        "errors": job.get("errors", []),
-        "warnings": job.get("warnings", [])
+        "logs": job_dict.get("logs", []),
+        "errors": job_dict.get("errors", []),
+        "warnings": job_dict.get("warnings", [])
     }
 
 
@@ -397,21 +476,147 @@ async def verify_apigee_x_credentials(config: Dict[str, Any]):
             "message": str(e)
         }
 
+# === Edge Configuration Routes ===
+
+class EdgeConfigCreate(BaseModel):
+    orgId: str
+    username: str
+    env: str
+    url: str
+    password: str
+
+@api_router.post("/config/edge")
+async def save_edge_config(config: EdgeConfigCreate):
+    """Save Apigee Edge configuration to Firestore"""
+    try:
+        config_data = {
+            "orgId": config.orgId,
+            "username": config.username,
+            "env": config.env,
+            "url": config.url,
+            "password": config.password,  # In production, encrypt this
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        # Store in Firestore
+        if firestore_db:
+            doc_ref = firestore_db.collection('edge_configs').document(config.orgId)
+            doc_ref.set(config_data)
+            logger.info(f"Edge config saved to Firestore for org: {config.orgId}")
+        else:
+            # Fallback: store in memory if Firestore not available
+            global _in_memory_config
+            _in_memory_config = config_data
+            logger.warning("Firestore not available, storing in memory")
+        
+        # Also store in MongoDB if available
+        if db is not None:
+            await db.edge_configs.update_one(
+                {"orgId": config.orgId},
+                {"$set": config_data},
+                upsert=True
+            )
+            logger.info(f"Edge config saved to MongoDB for org: {config.orgId}")
+        
+        return {
+            "success": True,
+            "message": "Edge configuration saved successfully",
+            "orgId": config.orgId
+        }
+    except Exception as e:
+        logger.error(f"Failed to save Edge config: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/config/edge/{org_id}")
+async def get_edge_config(org_id: str):
+    """Get saved Edge configuration from Firestore"""
+    try:
+        config_data = None
+        
+        # Try Firestore first
+        if firestore_db:
+            doc_ref = firestore_db.collection('edge_configs').document(org_id)
+            doc = doc_ref.get()
+            if doc.exists:
+                config_data = doc.to_dict()
+                logger.info(f"Edge config retrieved from Firestore for org: {org_id}")
+        
+        # Fallback to MongoDB
+        if not config_data and db is not None:
+            config_data = await db.edge_configs.find_one({"orgId": org_id}, {"_id": 0})
+            if config_data:
+                logger.info(f"Edge config retrieved from MongoDB for org: {org_id}")
+        
+        # Fallback to in-memory
+        if not config_data:
+            global _in_memory_config
+            if _in_memory_config and _in_memory_config.get("orgId") == org_id:
+                config_data = _in_memory_config
+                logger.info(f"Edge config retrieved from memory for org: {org_id}")
+        
+        if not config_data:
+            raise HTTPException(status_code=404, detail="Edge configuration not found")
+        
+        # Remove password from response for security
+        safe_config = {**config_data}
+        safe_config.pop("password", None)
+        safe_config["password_set"] = bool(config_data.get("password"))
+        
+        return safe_config
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get Edge config: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # === Discovery Routes ===
 
-@api_router.get("/discover/real")
-async def discover_real_resources():
-    """Discover all resources from the Edge data folder"""
+@api_router.post("/discover/real")
+async def discover_real_resources(edge_config: EdgeConfigCreate):
+    """Discover all resources from the Edge data folder and save Edge config to Firestore"""
     from utils.edge_data_parser import EdgeDataParser
     
     try:
+        # Save Edge configuration to Firestore
+        config_data = {
+            "orgId": edge_config.orgId,
+            "username": edge_config.username,
+            "env": edge_config.env,
+            "url": edge_config.url,
+            "password": edge_config.password,  # In production, encrypt this
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        # Store in Firestore
+        if firestore_db:
+            doc_ref = firestore_db.collection('edge_configs').document(edge_config.orgId)
+            doc_ref.set(config_data)
+            logger.info(f"Edge config saved to Firestore during discovery for org: {edge_config.orgId}")
+        else:
+            logger.warning("Firestore not available, storing in memory")
+            global _in_memory_config
+            _in_memory_config = config_data
+        
+        # Also store in MongoDB if available
+        if db is not None:
+            await db.edge_configs.update_one(
+                {"orgId": edge_config.orgId},
+                {"$set": config_data},
+                upsert=True
+            )
+            logger.info(f"Edge config saved to MongoDB during discovery for org: {edge_config.orgId}")
+        
+        # Parse resources from local files
         parser = EdgeDataParser()
         resources = parser.parse_all()
         
         return {
             "success": True,
             "resources": resources,
-            "summary": parser.get_summary()
+            "summary": parser.get_summary(),
+            "config_saved": True
         }
     except Exception as e:
         logger.error(f"Discovery failed: {str(e)}")
@@ -628,20 +833,51 @@ async def calculate_diff(payload: Dict[str, Any]):
 # Include the router in the main app
 app.include_router(api_router)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# Add exception handler to ensure CORS headers are always included
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request, exc):
+    """Ensure CORS headers are included in error responses"""
+    origin = request.headers.get("origin", "")
+    cors_origin = origin if origin in ALLOWED_ORIGINS else (ALLOWED_ORIGINS[0] if ALLOWED_ORIGINS else "*")
+    
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+        headers={
+            "Access-Control-Allow-Origin": cors_origin,
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+            "Access-Control-Allow-Headers": "*",
+        }
+    )
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request, exc):
+    """Handle unexpected errors and include CORS headers"""
+    logger.error(f"Unhandled exception: {str(exc)}", exc_info=True)
+    origin = request.headers.get("origin", "")
+    cors_origin = origin if origin in ALLOWED_ORIGINS else (ALLOWED_ORIGINS[0] if ALLOWED_ORIGINS else "*")
+    
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error", "error": str(exc)},
+        headers={
+            "Access-Control-Allow-Origin": cors_origin,
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+            "Access-Control-Allow-Headers": "*",
+        }
+    )
 
 # === Replace deprecated @app.on_event with lifespan ===
 from contextlib import asynccontextmanager
@@ -659,9 +895,10 @@ app.router.lifespan_context = lifespan
 # === Allow python server.py to directly run the API ===
 if __name__ == "__main__":
     import uvicorn
+    port = int(os.environ.get("PORT", 8080))
     uvicorn.run(
         "server:app",
         host="0.0.0.0",
-        port=8000,
+        port=port,
         reload=True,
     )

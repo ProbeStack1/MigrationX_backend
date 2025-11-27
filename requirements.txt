@@ -19,7 +19,7 @@ idna==3.11
 iniconfig==2.3.0
 isort==7.0.0
 jmespath==1.0.1
-jq==1.10.0
+# jq==1.10.0  # Removed: Not used and causes build issues on Windows
 markdown-it-py==4.0.0
 mccabe==0.7.0
 mdurl==0.1.2
@@ -69,3 +69,4 @@ urllib3==2.5.0
 uvicorn==0.25.0
 watchfiles==1.1.1
 xlsxwriter==3.2.9
+google-cloud-firestore==2.18.0
