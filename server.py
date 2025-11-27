@@ -654,14 +654,15 @@ async def lifespan(app: FastAPI):
     client.close()
 
 app.router.lifespan_context = lifespan
-
-
-# === Allow python server.py to directly run the API ===
+import uvicorn
 if __name__ == "__main__":
-    import uvicorn
+    # Cloud Run injects the PORT environment variable. We use 8000 as a default 
+    # for local testing, but the deployment will use the Cloud Run PORT.
+    PORT = int(os.environ.get("PORT", 8000))
+    
     uvicorn.run(
-        "server:app",
+        "server:app", # Assumes your FastAPI object is 'app' in this file 'server.py'
         host="0.0.0.0",
-        port=8000,
-        reload=True,
+        port=PORT, # CRUCIAL: Use the dynamic PORT variable
+        reload=True, # Set reload to False in production environment
     )

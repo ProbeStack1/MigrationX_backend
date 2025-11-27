@@ -1,2 +1,19 @@
-TimeStamp 2025-11-24 04:34:01.072477+00:00
-|| proxy DemoTest-Proxy || 200 || Proxy migrated successfully ||
+TimeStamp 2025-11-27 12:23:53.269101+00:00
+|| proxy DemoApiJag || 401 || Migration failed: {
+  "error": {
+    "code": 401,
+    "message": "Request had invalid authentication credentials. Expected OAuth 2 access token, login cookie or other valid authentication credential. See https://developers.google.com/identity/sign-in/web/devconsole-project.",
+    "status": "UNAUTHENTICATED",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+        "reason": "ACCESS_TOKEN_TYPE_UNSUPPORTED",
+        "metadata": {
+          "method": "google.cloud.apigee.v1.ApiProxyService.CreateApiProxyRevision",
+          "service": "apigee.googleapis.com"
+        }
+      }
+    ]
+  }
+}
+ ||
