@@ -1,16 +1,17 @@
-TimeStamp 2025-11-27 12:23:53.269101+00:00
+TimeStamp 2025-11-27 20:15:04.268099+00:00
 || proxy DemoApiJag || 401 || Migration failed: {
   "error": {
     "code": 401,
-    "message": "Request had invalid authentication credentials. Expected OAuth 2 access token, login cookie or other valid authentication credential. See https://developers.google.com/identity/sign-in/web/devconsole-project.",
+    "message": "Request is missing required authentication credential. Expected OAuth 2 access token, login cookie or other valid authentication credential. See https://developers.google.com/identity/sign-in/web/devconsole-project.",
     "status": "UNAUTHENTICATED",
     "details": [
       {
         "@type": "type.googleapis.com/google.rpc.ErrorInfo",
-        "reason": "ACCESS_TOKEN_TYPE_UNSUPPORTED",
+        "reason": "CREDENTIALS_MISSING",
+        "domain": "googleapis.com",
         "metadata": {
-          "method": "google.cloud.apigee.v1.ApiProxyService.CreateApiProxyRevision",
-          "service": "apigee.googleapis.com"
+          "service": "apigee.googleapis.com",
+          "method": "google.cloud.apigee.v1.ApiProxyService.CreateApiProxyRevision"
         }
       }
     ]

@@ -13,6 +13,7 @@ import asyncio
 from fastapi import HTTPException, BackgroundTasks
 from datetime import datetime, timezone
 import asyncio
+import uvicorn
 # In-memory storage when MongoDB is not available
 _in_memory_config = None
 # Import migration models and engine
@@ -316,7 +317,13 @@ async def save_apigee_x_config(config: Dict[str, Any]):
             config["apigeex_mgmt_url"] = "https://apigee.googleapis.com/v1/organizations/"
         
         # Add folder name
-        config["folder_name"] = "backend/data_edge"
+        base_dir = os.path.dirname(os.path.abspath(__file__))  # current script directory
+        default_folder = os.path.join(base_dir, "backend", "data_edge")
+        
+        # Use provided folder_name or fallback to default
+        folder_name = config.get("folder_name", default_folder)
+        folder_name = os.path.abspath(folder_name)  # ensure absolute path
+        config["folder_name"] = folder_name
         
         # Verify credentials
         migrator = ApigeeXMigrator(config)
@@ -382,7 +389,13 @@ async def verify_apigee_x_credentials(config: Dict[str, Any]):
     try:
         if "apigeex_mgmt_url" not in config:
             config["apigeex_mgmt_url"] = "https://apigee.googleapis.com/v1/organizations/"
-        config["folder_name"] = "backend/data_edge"
+        base_dir = os.path.dirname(os.path.abspath(__file__))  # current script directory
+        default_folder = os.path.join(base_dir, "backend", "data_edge")
+        
+        # Use provided folder_name or fallback to default
+        folder_name = config.get("folder_name", default_folder)
+        folder_name = os.path.abspath(folder_name)  # ensure absolute path
+        config["folder_name"] = folder_name
         
         migrator = ApigeeXMigrator(config)
         success, message = migrator.verify_credentials()
@@ -648,21 +661,20 @@ from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup (if needed later)
     yield
-    # Shutdown
-    client.close()
+    if client:
+        client.close()
 
 app.router.lifespan_context = lifespan
-import uvicorn
+
+# --- START SERVER ---
 if __name__ == "__main__":
-    # Cloud Run injects the PORT environment variable. We use 8000 as a default 
-    # for local testing, but the deployment will use the Cloud Run PORT.
-    PORT = int(os.environ.get("PORT", 8000))
-    
+    PORT = int(os.environ.get("PORT", 8080))
+
     uvicorn.run(
-        "server:app", # Assumes your FastAPI object is 'app' in this file 'server.py'
+        "server:app",
         host="0.0.0.0",
-        port=PORT, # CRUCIAL: Use the dynamic PORT variable
-        reload=True, # Set reload to False in production environment
+        port=PORT,
+        reload=False,   # VERY IMPORTANT
+        workers=1
     )

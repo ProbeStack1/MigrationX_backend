@@ -22,17 +22,19 @@ class ApigeeXMigrator:
 
     def __init__(self, config: Dict[str, Any]):
         """Initialize with Apigee X configuration"""
+        
         self.config = config
         self.apigeex_mgmt_url = config.get("apigeex_mgmt_url", "https://apigee.googleapis.com/v1/organizations/")
         self.apigeex_org_name = config.get("apigeex_org_name", "")
         self.apigeex_token = config.get("apigeex_token", "")
         self.apigeex_env = config.get("apigeex_env", "eval")
-        self.folder_name = config.get("folder_name", "backend/data_edge")
 
         # Create logs folder at backend/logs
         self.logs_dir = BASE_DIR / "logs"
         self.logs_dir.mkdir(parents=True, exist_ok=True)
-
+        base_dir = os.path.dirname(os.path.abspath(__file__))  # directory of current script
+        
+        self.folder_name = BASE_DIR / "data_edge"
         # Create log file
         self.log_file = self.logs_dir / "migration_logs.txt"
         with open(self.log_file, "w+", encoding="utf-8") as f:
