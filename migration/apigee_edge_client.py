@@ -88,3 +88,33 @@ class ApigeeEdgeClient:
     def get_developer_app(self, developer_email: str, app_name: str) -> Tuple[int, Dict[str, Any]]:
         """Get developer app details"""
         return self._make_request("GET", f"developers/{developer_email}/apps/{app_name}")
+    
+    def verify_connection(self) -> Tuple[bool, str]:
+        """
+        Verify connection to Apigee Edge by making a simple API call.
+        
+        Returns:
+            Tuple of (success: bool, message: str)
+        """
+        try:
+            # Try to get organization info - a lightweight endpoint that validates auth
+            status_code, response = self._make_request("GET", "")
+            
+            if status_code == 200:
+                return True, "Connection verified successfully"
+            elif status_code == 401:
+                return False, "Authentication failed: Invalid credentials"
+            elif status_code == 403:
+                return False, "Authorization failed: Insufficient permissions"
+            elif status_code == 404:
+                return False, f"Organization '{self.org}' not found"
+            else:
+                error_msg = response.get("error", f"HTTP {status_code}")
+                return False, f"Connection failed: {error_msg}"
+        except requests.exceptions.ConnectionError as e:
+            return False, f"Network error: Unable to reach {self.base_url}"
+        except requests.exceptions.Timeout as e:
+            return False, f"Connection timeout: {self.base_url} did not respond"
+        except Exception as e:
+            logger.error(f"Verification error: {str(e)}")
+            return False, f"Verification error: {str(e)}"
