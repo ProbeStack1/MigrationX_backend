@@ -1202,55 +1202,26 @@ async def get_dependencies():
 
 @api_router.post("/migrate/resource")
 async def migrate_single_resource(payload: Dict[str, Any]):
-    """Migrate a single resource using real Apigee X APIs"""
+    """
+    Migrate a single resource (stubbed implementation).
 
+    TODO: Enable real Apigee migration once credentials are available.
+    Currently returns stubbed success response and stores migration status in Firestore.
+    """
     try:
         # ======================================================
-        # 1. LOAD CONFIG FROM DB (IF DB IS ENABLED)
-        # ======================================================
-        config = None
-        if db is not None:
-            try:
-                config = await db.apigee_x_config.find_one({}, {"_id": 0})
-            except Exception:
-                config = None  # DB not available
-
-        # ======================================================
-        # 2. FALLBACK: LOAD CONFIG FROM UI PAYLOAD
-        # ======================================================
-        if not config:
-            config = payload.get("apigee_x_config")
-
-        # ======================================================
-        # 3. STILL MISSING? THROW ERROR
-        # ======================================================
-        if not config:
-            raise HTTPException(
-                status_code=400, 
-                detail="Apigee X configuration not found. Provide it in UI or save via /config/apigee-x."
-            )
-
-        # ======================================================
-        # 4. ENSURE REQUIRED CONFIG FIELDS ARE PRESENT
-        # ======================================================
-        required = ["apigeex_org_name", "apigeex_env", "apigeex_token"]
-        for r in required:
-            if r not in config:
-                raise HTTPException(
-                    status_code=400, 
-                    detail=f"Missing required config field: {r}"
-                )
-
-        # Add default mgmt URL if missing
-        if "apigeex_mgmt_url" not in config:
-            config["apigeex_mgmt_url"] = "https://apigee.googleapis.com/v1/organizations/"
-
-        # ======================================================
-        # 5. PROCESS RESOURCE MIGRATION
+        # 1. VALIDATE REQUIRED FIELDS
         # ======================================================
         resource_type = payload.get("resource_type")
         resource_name = payload.get("resource_name")
+        
+        if not resource_type or not resource_name:
+            raise HTTPException(
+                status_code=400, 
+                detail="resource_type and resource_name are required"
+                )
 
+        # Normalize resource type
         normalize_map = {
             "target_server": "targetserver",
             "targetserver": "targetserver",
@@ -1264,58 +1235,236 @@ async def migrate_single_resource(payload: Dict[str, Any]):
             "app": "app"
         }
 
-        raw_type = resource_type
-        resource_type = normalize_map.get(raw_type)
-
-        if not resource_type:
-            raise HTTPException(
-                status_code=400, 
-                detail=f"Unsupported resource type: {raw_type}"
-            )
-
-        if not resource_type or not resource_name:
-            raise HTTPException(status_code=400, detail="resource_type and resource_name are required")
-
-        migrator = ApigeeXMigrator(config)
-
-        if resource_type == "targetserver":
-            result = migrator.migrate_target_server(resource_name)
-
-        elif resource_type == "kvm":
-            scope = payload.get("scope", "env")
-            result = migrator.migrate_kvm(resource_name, scope)
-
-        elif resource_type == "developer":
-            result = migrator.migrate_developer(resource_name)
-
-        elif resource_type == "apiproduct":
-            result = migrator.migrate_product(resource_name)
-
-        elif resource_type == "app":
-            result = migrator.migrate_app(resource_name)
-
-        elif resource_type == "proxy":
-            result = migrator.migrate_proxy(resource_name.replace(".zip", ""))
-
-        elif resource_type == "sharedflow":
-            result = migrator.migrate_sharedflow(resource_name.replace(".zip", ""))
-
+        normalized_type = normalize_map.get(resource_type.lower(), resource_type.lower())
+        
+        # Get gateway type from payload or config (default to "X" for migration)
+        gateway_type = payload.get("gateway_type") or payload.get("apigee_type") or "X"
+        
+        # Clean resource name (remove .zip extension if present)
+        clean_resource_name = resource_name.replace(".zip", "")
+        
+        # ======================================================
+        # 2. STUBBED MIGRATION LOGIC
+        # ======================================================
+        # TODO: Enable real Apigee migration once credentials are available
+        # TODO: Replace this stubbed logic with actual Apigee Edge to X migration
+        # TODO: Use ApigeeXMigrator or similar to perform real migration
+        
+        logger.info(f"Stubbed migration: {normalized_type} '{clean_resource_name}' (gateway_type: {gateway_type})")
+        
+        # Assume migration is successful (stubbed)
+        migration_status = "migrated"
+        migration_timestamp = datetime.now(timezone.utc)
+        
+        # ======================================================
+        # 3. GENERATE UNIQUE IDENTIFIER
+        # ======================================================
+        # Unique identifier: combination of gateway_type, resource_type, and resource_name
+        unique_id = f"{gateway_type}_{normalized_type}_{clean_resource_name}"
+        
+        # ======================================================
+        # 4. PREPARE METADATA
+        # ======================================================
+        metadata = {
+            "resource_type": normalized_type,
+            "original_resource_name": resource_name,
+            "scope": payload.get("scope", "env"),
+            "environment": payload.get("environment"),
+            "source_org": payload.get("source_org"),
+            "target_org": payload.get("target_org"),
+            "policy_count": payload.get("policy_count", 0),
+            "warnings": payload.get("warnings", []),
+            "readiness": payload.get("readiness", "ready")
+        }
+        
+        # ======================================================
+        # 5. STORE MIGRATION STATUS IN FIRESTORE
+        # ======================================================
+        migration_doc = {
+            "unique_id": unique_id,
+            "proxy_name": clean_resource_name,  # Using proxy_name for UI compatibility (works for all resource types)
+            "resource_type": normalized_type,
+            "resource_name": clean_resource_name,
+            "gateway_type": gateway_type,
+            "apigee_type": gateway_type,  # Backward compatibility
+            "status": migration_status,
+            "verification_mode": "stub",
+            "migrated_at": migration_timestamp.isoformat(),
+            "created_at": migration_timestamp.isoformat(),
+            "metadata": metadata
+        }
+        
+        stored_in_firestore = False
+        if firestore_db is not None:
+            try:
+                migrations_ref = firestore_db.collection('migrations')
+                # Check if migration already exists
+                existing_docs = list(migrations_ref.where('unique_id', '==', unique_id).stream())
+                
+                if existing_docs:
+                    # Update existing migration
+                    for doc in existing_docs:
+                        doc.reference.update(migration_doc)
+                    logger.info(f"Updated existing migration record: {unique_id}")
+                else:
+                    # Create new migration record
+                    migrations_ref.add(migration_doc)
+                    logger.info(f"Stored migration record in Firestore: {unique_id}")
+                
+                stored_in_firestore = True
+            except Exception as e:
+                logger.error(f"Failed to store migration in Firestore: {str(e)}")
+                logger.exception(e)
         else:
-            raise HTTPException(status_code=400, detail=f"Unsupported resource type: {resource_type}")
-
-        return result
+            logger.warning("Firestore not available - migration status not persisted")
+        
+        # ======================================================
+        # 6. RETURN STUBBED SUCCESS RESPONSE
+        # ======================================================
+        response = {
+            "proxy_name": clean_resource_name,
+            "status": migration_status,
+            "verification_mode": "stub",
+            "unique_id": unique_id,
+            "resource_type": normalized_type,
+            "gateway_type": gateway_type,
+            "migrated_at": migration_timestamp.isoformat(),
+            "stored": stored_in_firestore
+        }
+        
+        # Add metadata for UI display
+        if metadata.get("policy_count") is not None:
+            response["policy_count"] = metadata["policy_count"]
+        if metadata.get("warnings"):
+            response["warnings"] = metadata["warnings"]
+        if metadata.get("readiness"):
+            response["readiness"] = metadata["readiness"]
+        
+        return response
 
     except HTTPException:
         raise
 
     except Exception as e:
-        logging.error(f"Migration failed: {str(e)}")
+        logger.error(f"Migration failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Migration failed: {str(e)}"
+        )
+
+
+@api_router.get("/migrate/status")
+async def get_migration_status(
+    proxy_name: Optional[str] = None,
+    resource_type: Optional[str] = None,
+    gateway_type: Optional[str] = None,
+    unique_id: Optional[str] = None
+):
+    """
+    Get migration status for resources.
+    
+    Query Parameters:
+    - proxy_name: Filter by proxy/resource name
+    - resource_type: Filter by resource type (proxy, sharedflow, etc.)
+    - gateway_type: Filter by gateway type (Edge or X)
+    - unique_id: Get specific migration by unique ID
+    
+    Returns migration status including proxy name, status, and metadata.
+    """
+    try:
+        migrations = []
+        
+        if firestore_db is not None:
+            try:
+                migrations_ref = firestore_db.collection('migrations')
+                
+                # Build query based on filters
+                if unique_id:
+                    # Get specific migration by unique_id
+                    docs = list(migrations_ref.where('unique_id', '==', unique_id).stream())
+                elif proxy_name:
+                    # Filter by proxy_name
+                    docs = list(migrations_ref.where('proxy_name', '==', proxy_name).stream())
+                    # Also filter by resource_name for backward compatibility
+                    docs.extend(list(migrations_ref.where('resource_name', '==', proxy_name).stream()))
+                else:
+                    # Get all migrations, then filter
+                    docs = list(migrations_ref.stream())
+                
+                # Apply additional filters
+                for doc in docs:
+                    data = doc.to_dict()
+                    
+                    # Apply filters
+                    if resource_type and data.get("resource_type") != resource_type:
+                        continue
+                    if gateway_type and data.get("gateway_type") != gateway_type and data.get("apigee_type") != gateway_type:
+                        continue
+                    
+                    migrations.append({
+                        "unique_id": data.get("unique_id"),
+                        "proxy_name": data.get("proxy_name") or data.get("resource_name"),
+                        "resource_type": data.get("resource_type"),
+                        "resource_name": data.get("resource_name"),
+                        "gateway_type": data.get("gateway_type") or data.get("apigee_type"),
+                        "status": data.get("status"),
+                        "verification_mode": data.get("verification_mode", "stub"),
+                        "migrated_at": data.get("migrated_at"),
+                        "created_at": data.get("created_at"),
+                        "metadata": data.get("metadata", {})
+                    })
+                
+            except Exception as e:
+                logger.error(f"Failed to query Firestore: {str(e)}")
+                logger.exception(e)
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to retrieve migration status: {str(e)}"
+                )
+        else:
+            logger.warning("Firestore not available - cannot retrieve migration status")
         return {
-            "success": False,
-            "resource_type": payload.get("resource_type"),
-            "resource_name": payload.get("resource_name"),
-            "message": str(e)
-        }
+                "migrations": [],
+                "message": "Firestore not available"
+            }
+        
+        # If unique_id specified and not found
+        if unique_id and not migrations:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Migration not found for unique_id: {unique_id}"
+            )
+        
+        # If proxy_name specified and not found
+        if proxy_name and not migrations:
+            return {
+                "migrations": [],
+                "proxy_name": proxy_name,
+                "status": "not_migrated",
+                "message": f"No migration found for proxy: {proxy_name}"
+            }
+        
+        # Return response
+        if len(migrations) == 1:
+            # Single migration - return directly
+            return migrations[0]
+        else:
+            # Multiple migrations - return list
+            return {
+                "migrations": migrations,
+                "count": len(migrations)
+            }
+    
+    except HTTPException:
+        raise
+    
+    except Exception as e:
+        logger.error(f"Failed to get migration status: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve migration status: {str(e)}"
+        )
+
 
 @api_router.get("/mock/resources/{resource_type}")
 async def get_mock_resources(resource_type: str):

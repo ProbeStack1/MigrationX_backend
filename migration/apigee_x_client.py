@@ -3,6 +3,8 @@ import requests
 import json
 import logging
 from typing import Dict, Any, Optional, Tuple
+
+# Google Auth imports - required for Apigee X authentication
 from google.oauth2 import service_account
 from google.auth.transport.requests import Request
 
