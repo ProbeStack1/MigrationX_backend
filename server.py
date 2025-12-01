@@ -600,6 +600,319 @@ async def migrate_single_resource(payload: Dict[str, Any]):
             "message": str(e)
         }
 
+@api_router.post("/migrate/multi-resource")
+async def migrate_multiple_resources(payload: Dict[str, Any]):
+    """Migrate multiple selected resources using real Apigee X APIs"""
+    
+    try:
+        # Load config from DB or payload
+        config = None
+        if db is not None:
+            try:
+                config = await db.apigee_x_config.find_one({}, {"_id": 0})
+            except Exception:
+                config = None
+        
+        if not config:
+            config = payload.get("apigee_x_config")
+        
+        if not config:
+            raise HTTPException(
+                status_code=400,
+                detail="Apigee X configuration not found. Provide it in UI or save via /config/apigee-x."
+            )
+        
+        # Validate required config fields
+        required = ["apigeex_org_name", "apigeex_env", "apigeex_token"]
+        for r in required:
+            if r not in config:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Missing required config field: {r}"
+                )
+        
+        if "apigeex_mgmt_url" not in config:
+            config["apigeex_mgmt_url"] = "https://apigee.googleapis.com/v1/organizations/"
+        
+        # Get resources list from payload
+        resources = payload.get("resources", [])
+        if not resources:
+            raise HTTPException(status_code=400, detail="No resources provided for migration")
+        
+        # Check if deployment is requested
+        deploy_after_migration = payload.get("deploy_after_migration", False)
+        
+        migrator = ApigeeXMigrator(config)
+        results = []
+        successful_count = 0
+        failed_count = 0
+        
+        normalize_map = {
+            "target_server": "targetserver",
+            "targetserver": "targetserver",
+            "proxy": "proxy",
+            "shared_flow": "sharedflow",
+            "sharedflow": "sharedflow",
+            "kvm": "kvm",
+            "api_product": "apiproduct",
+            "apiproduct": "apiproduct",
+            "developer": "developer",
+            "app": "app"
+        }
+        
+        # Process each resource
+        for resource in resources:
+            resource_type = resource.get("type") or resource.get("resource_type")
+            resource_name = resource.get("name") or resource.get("resource_name")
+            
+            if not resource_type or not resource_name:
+                result = {
+                    "resource_type": resource_type,
+                    "resource_name": resource_name,
+                    "success": False,
+                    "message": "Missing resource_type or resource_name",
+                    "status_code": 400
+                }
+                results.append(result)
+                failed_count += 1
+                continue
+            
+            normalized_type = normalize_map.get(resource_type)
+            if not normalized_type:
+                result = {
+                    "resource_type": resource_type,
+                    "resource_name": resource_name,
+                    "success": False,
+                    "message": f"Unsupported resource type: {resource_type}",
+                    "status_code": 400
+                }
+                results.append(result)
+                failed_count += 1
+                continue
+            
+            # Migrate the resource
+            try:
+                if normalized_type == "targetserver":
+                    result = migrator.migrate_target_server(resource_name)
+                elif normalized_type == "kvm":
+                    scope = resource.get("scope", "env")
+                    result = migrator.migrate_kvm(resource_name, scope)
+                elif normalized_type == "developer":
+                    result = migrator.migrate_developer(resource_name)
+                elif normalized_type == "apiproduct":
+                    result = migrator.migrate_product(resource_name)
+                elif normalized_type == "app":
+                    result = migrator.migrate_app(resource_name)
+                elif normalized_type == "proxy":
+                    # Use deployment flag for proxies
+                    result = migrator.migrate_proxy(resource_name.replace(".zip", ""), deploy_after_migration)
+                elif normalized_type == "sharedflow":
+                    # Use deployment flag for shared flows
+                    result = migrator.migrate_sharedflow(resource_name.replace(".zip", ""), deploy_after_migration)
+                else:
+                    result = {
+                        "resource_type": resource_type,
+                        "resource_name": resource_name,
+                        "success": False,
+                        "message": f"Migration method not implemented for: {normalized_type}",
+                        "status_code": 501
+                    }
+                
+                results.append(result)
+                
+                if result.get("success", False):
+                    successful_count += 1
+                else:
+                    failed_count += 1
+                    
+            except Exception as e:
+                result = {
+                    "resource_type": resource_type,
+                    "resource_name": resource_name,
+                    "success": False,
+                    "message": f"Migration error: {str(e)}",
+                    "status_code": 500
+                }
+                results.append(result)
+                failed_count += 1
+        
+        # Create summary
+        summary = {
+            "total_requested": len(resources),
+            "successful": successful_count,
+            "failed": failed_count,
+            "success_rate": (successful_count / len(resources) * 100) if resources else 0,
+            "completed_at": datetime.now(timezone.utc).isoformat(),
+            "deployment_enabled": deploy_after_migration
+        }
+        
+        return {
+            "success": True,
+            "total_resources": len(resources),
+            "successful_migrations": successful_count,
+            "failed_migrations": failed_count,
+            "results": results,
+            "summary": summary
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Multi-resource migration failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Multi-resource migration failed: {str(e)}")
+
+# === Deployment Routes ===
+
+@api_router.post("/deploy/proxy")
+async def deploy_proxy(payload: Dict[str, Any]):
+    """Deploy a proxy to the specified environment"""
+    try:
+        # Load config
+        config = None
+        if db is not None:
+            try:
+                config = await db.apigee_x_config.find_one({}, {"_id": 0})
+            except Exception:
+                config = None
+        
+        if not config:
+            config = payload.get("apigee_x_config")
+        
+        if not config:
+            raise HTTPException(
+                status_code=400,
+                detail="Apigee X configuration not found. Provide it in UI or save via /config/apigee-x."
+            )
+        
+        proxy_name = payload.get("proxy_name")
+        revision = payload.get("revision", "1")
+        
+        if not proxy_name:
+            raise HTTPException(status_code=400, detail="proxy_name is required")
+        
+        migrator = ApigeeXMigrator(config)
+        result = migrator.deploy_proxy(proxy_name, revision)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Proxy deployment failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Proxy deployment failed: {str(e)}")
+
+@api_router.post("/deploy/sharedflow")
+async def deploy_sharedflow(payload: Dict[str, Any]):
+    """Deploy a shared flow to the specified environment"""
+    try:
+        # Load config
+        config = None
+        if db is not None:
+            try:
+                config = await db.apigee_x_config.find_one({}, {"_id": 0})
+            except Exception:
+                config = None
+        
+        if not config:
+            config = payload.get("apigee_x_config")
+        
+        if not config:
+            raise HTTPException(
+                status_code=400,
+                detail="Apigee X configuration not found. Provide it in UI or save via /config/apigee-x."
+            )
+        
+        sf_name = payload.get("sharedflow_name")
+        revision = payload.get("revision", "1")
+        
+        if not sf_name:
+            raise HTTPException(status_code=400, detail="sharedflow_name is required")
+        
+        migrator = ApigeeXMigrator(config)
+        result = migrator.deploy_sharedflow(sf_name, revision)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Shared flow deployment failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Shared flow deployment failed: {str(e)}")
+
+@api_router.post("/migrate-and-deploy/proxy")
+async def migrate_and_deploy_proxy(payload: Dict[str, Any]):
+    """Migrate and deploy a proxy in one operation"""
+    try:
+        # Load config
+        config = None
+        if db is not None:
+            try:
+                config = await db.apigee_x_config.find_one({}, {"_id": 0})
+            except Exception:
+                config = None
+        
+        if not config:
+            config = payload.get("apigee_x_config")
+        
+        if not config:
+            raise HTTPException(
+                status_code=400,
+                detail="Apigee X configuration not found. Provide it in UI or save via /config/apigee-x."
+            )
+        
+        proxy_name = payload.get("proxy_name")
+        
+        if not proxy_name:
+            raise HTTPException(status_code=400, detail="proxy_name is required")
+        
+        migrator = ApigeeXMigrator(config)
+        result = migrator.migrate_and_deploy_proxy(proxy_name.replace(".zip", ""))
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Proxy migration and deployment failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Proxy migration and deployment failed: {str(e)}")
+
+@api_router.post("/migrate-and-deploy/sharedflow")
+async def migrate_and_deploy_sharedflow(payload: Dict[str, Any]):
+    """Migrate and deploy a shared flow in one operation"""
+    try:
+        # Load config
+        config = None
+        if db is not None:
+            try:
+                config = await db.apigee_x_config.find_one({}, {"_id": 0})
+            except Exception:
+                config = None
+        
+        if not config:
+            config = payload.get("apigee_x_config")
+        
+        if not config:
+            raise HTTPException(
+                status_code=400,
+                detail="Apigee X configuration not found. Provide it in UI or save via /config/apigee-x."
+            )
+        
+        sf_name = payload.get("sharedflow_name")
+        
+        if not sf_name:
+            raise HTTPException(status_code=400, detail="sharedflow_name is required")
+        
+        migrator = ApigeeXMigrator(config)
+        result = migrator.migrate_and_deploy_sharedflow(sf_name.replace(".zip", ""))
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Shared flow migration and deployment failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Shared flow migration and deployment failed: {str(e)}")
+
 @api_router.get("/mock/resources/{resource_type}")
 async def get_mock_resources(resource_type: str):
     """Get mock resources of a specific type"""

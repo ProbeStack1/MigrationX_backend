@@ -428,12 +428,13 @@ class ApigeeXMigrator:
                 "message": f"Error: {str(e)}"
             }
     
-    def migrate_proxy(self, proxy_name: str) -> Dict[str, Any]:
+    def migrate_proxy(self, proxy_name: str, deploy_after_migration: bool = False) -> Dict[str, Any]:
         """
         Migrate a single API proxy.
         
         Args:
             proxy_name: Name of the proxy (without .zip extension)
+            deploy_after_migration: Whether to deploy the proxy after migration
             
         Returns:
             Dictionary with migration result
@@ -465,6 +466,16 @@ class ApigeeXMigrator:
                 "message": "Proxy migrated successfully" if status_code == 200 else f"Migration failed: {response_text}"
             }
             
+            # Deploy proxy if migration was successful and deployment is requested
+            if result["success"] and deploy_after_migration:
+                deployment_result = self.deploy_proxy(proxy_name)
+                if deployment_result["success"]:
+                    result["message"] += " and deployed successfully"
+                    result["deployment_status"] = "deployed"
+                else:
+                    result["message"] += f" but deployment failed: {deployment_result['message']}"
+                    result["deployment_status"] = "failed"
+            
             self._log_migration(result)
             return result
             
@@ -477,12 +488,13 @@ class ApigeeXMigrator:
                 "message": f"Error: {str(e)}"
             }
     
-    def migrate_sharedflow(self, sf_name: str) -> Dict[str, Any]:
+    def migrate_sharedflow(self, sf_name: str, deploy_after_migration: bool = False) -> Dict[str, Any]:
         """
         Migrate a single shared flow.
         
         Args:
             sf_name: Name of the shared flow (without .zip extension)
+            deploy_after_migration: Whether to deploy the shared flow after migration
             
         Returns:
             Dictionary with migration result
@@ -514,6 +526,16 @@ class ApigeeXMigrator:
                 "message": "Shared Flow migrated successfully" if status_code == 200 else f"Migration failed: {response_text}"
             }
             
+            # Deploy shared flow if migration was successful and deployment is requested
+            if result["success"] and deploy_after_migration:
+                deployment_result = self.deploy_sharedflow(sf_name)
+                if deployment_result["success"]:
+                    result["message"] += " and deployed successfully"
+                    result["deployment_status"] = "deployed"
+                else:
+                    result["message"] += f" but deployment failed: {deployment_result['message']}"
+                    result["deployment_status"] = "failed"
+            
             self._log_migration(result)
             return result
             
@@ -525,6 +547,125 @@ class ApigeeXMigrator:
                 "success": False,
                 "message": f"Error: {str(e)}"
             }
+    
+    def deploy_proxy(self, proxy_name: str, revision: str = "1") -> Dict[str, Any]:
+        """
+        Deploy a proxy to the specified environment.
+        
+        Args:
+            proxy_name: Name of the proxy to deploy
+            revision: Revision number to deploy (default: "1")
+            
+        Returns:
+            Dictionary with deployment result
+        """
+        try:
+            # First, get the latest revision if not specified
+            if revision == "1":
+                revision = self._get_latest_revision(proxy_name, "proxy")
+            
+            url = f"{self.apigeex_mgmt_url}{self.apigeex_org_name}/environments/{self.apigeex_env}/apis/{proxy_name}/revisions/{revision}/deployments"
+            
+            headers = {
+                "Authorization": f"Bearer {self.apigeex_token}",
+                "Content-Type": "application/json"
+            }
+            
+            response = requests.post(url, headers=headers)
+            
+            result = {
+                "resource_type": "proxy_deployment",
+                "resource_name": f"{proxy_name} (rev {revision})",
+                "status_code": response.status_code,
+                "success": response.status_code == 200,
+                "message": f"Proxy deployed successfully to {self.apigeex_env}" if response.status_code == 200 else f"Deployment failed: {response.text}"
+            }
+            
+            self._log_migration(result)
+            return result
+            
+        except Exception as e:
+            return {
+                "resource_type": "proxy_deployment",
+                "resource_name": proxy_name,
+                "status_code": 500,
+                "success": False,
+                "message": f"Deployment error: {str(e)}"
+            }
+    
+    def deploy_sharedflow(self, sf_name: str, revision: str = "1") -> Dict[str, Any]:
+        """
+        Deploy a shared flow to the specified environment.
+        
+        Args:
+            sf_name: Name of the shared flow to deploy
+            revision: Revision number to deploy (default: "1")
+            
+        Returns:
+            Dictionary with deployment result
+        """
+        try:
+            # First, get the latest revision if not specified
+            if revision == "1":
+                revision = self._get_latest_revision(sf_name, "sharedflow")
+            
+            url = f"{self.apigeex_mgmt_url}{self.apigeex_org_name}/environments/{self.apigeex_env}/sharedflows/{sf_name}/revisions/{revision}/deployments"
+            
+            headers = {
+                "Authorization": f"Bearer {self.apigeex_token}",
+                "Content-Type": "application/json"
+            }
+            
+            response = requests.post(url, headers=headers)
+            
+            result = {
+                "resource_type": "sharedflow_deployment",
+                "resource_name": f"{sf_name} (rev {revision})",
+                "status_code": response.status_code,
+                "success": response.status_code == 200,
+                "message": f"Shared flow deployed successfully to {self.apigeex_env}" if response.status_code == 200 else f"Deployment failed: {response.text}"
+            }
+            
+            self._log_migration(result)
+            return result
+            
+        except Exception as e:
+            return {
+                "resource_type": "sharedflow_deployment",
+                "resource_name": sf_name,
+                "status_code": 500,
+                "success": False,
+                "message": f"Deployment error: {str(e)}"
+            }
+    
+    def _get_latest_revision(self, resource_name: str, resource_type: str) -> str:
+        """
+        Get the latest revision number for a proxy or shared flow.
+        
+        Args:
+            resource_name: Name of the resource
+            resource_type: 'proxy' or 'sharedflow'
+            
+        Returns:
+            Latest revision number as string
+        """
+        try:
+            if resource_type == "proxy":
+                url = f"{self.apigeex_mgmt_url}{self.apigeex_org_name}/apis/{resource_name}/revisions"
+            else:  # sharedflow
+                url = f"{self.apigeex_mgmt_url}{self.apigeex_org_name}/sharedflows/{resource_name}/revisions"
+            
+            headers = {"Authorization": f"Bearer {self.apigeex_token}"}
+            response = requests.get(url, headers=headers)
+            
+            if response.status_code == 200:
+                revisions = response.json()
+                return str(max(int(rev) for rev in revisions))
+            else:
+                return "1"  # Default to revision 1 if unable to get revisions
+                
+        except Exception:
+            return "1"  # Default to revision 1 on any error
     
     def _log_migration(self, result: Dict[str, Any]):
         try:
@@ -540,6 +681,30 @@ class ApigeeXMigrator:
     # ------------------------------------------------------------
     # ADD THIS (Indented properly!)
     # ------------------------------------------------------------
+    def migrate_and_deploy_proxy(self, proxy_name: str) -> Dict[str, Any]:
+        """
+        Migrate and deploy a proxy in one operation.
+        
+        Args:
+            proxy_name: Name of the proxy
+            
+        Returns:
+            Dictionary with migration and deployment result
+        """
+        return self.migrate_proxy(proxy_name, deploy_after_migration=True)
+    
+    def migrate_and_deploy_sharedflow(self, sf_name: str) -> Dict[str, Any]:
+        """
+        Migrate and deploy a shared flow in one operation.
+        
+        Args:
+            sf_name: Name of the shared flow
+            
+        Returns:
+            Dictionary with migration and deployment result
+        """
+        return self.migrate_sharedflow(sf_name, deploy_after_migration=True)
+    
     def migrate_with_retry(self, func, *args, retries: int = 3, delay: float = 1.0):
         """
         Retry wrapper for any migration function.
