@@ -951,16 +951,31 @@ async def calculate_diff(payload: Dict[str, Any]):
     
     return diff.model_dump()
 
-# Include the router in the main app
-app.include_router(api_router)
+# Configure CORS middleware BEFORE including routers
+# This ensures CORS headers are applied to all routes
+allowed_origins = os.environ.get('CORS_ORIGINS', '').strip()
+if allowed_origins:
+    # Split by comma and strip whitespace from each origin
+    origins_list = [origin.strip() for origin in allowed_origins.split(',') if origin.strip()]
+else:
+    # Default allowed origins if CORS_ORIGINS is not set
+    origins_list = [
+        "https://probestack.io",
+        "http://localhost:5173",
+        "http://localhost:5174"
+    ]
 
 app.add_middleware(
     CORSMiddleware,
+    allow_origins=origins_list,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
+
+# Include the router in the main app (after CORS middleware)
+app.include_router(api_router)
 
 # Configure logging
 logging.basicConfig(
