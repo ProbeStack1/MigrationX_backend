@@ -1408,7 +1408,7 @@ logger_cors.info(f"CORS configured with allowed origins: {origins_list}")
 # Add CORS middleware with explicit headers (required when allow_credentials=True)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins_list,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"],
     allow_headers=[
