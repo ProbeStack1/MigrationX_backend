@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, BackgroundTasks
+from fastapi import FastAPI, APIRouter, HTTPException, BackgroundTasks, Request, Response
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -21,6 +21,7 @@ from models.migration_models import MigrationJob, MigrationJobCreate, Validation
 from migration.migration_engine import MigrationEngine
 from migration.assessment_engine import MigrationAssessment
 from migration.apigee_x_migrator import ApigeeXMigrator
+from migration.apigee_edge_client import ApigeeEdgeClient
 from utils.diff_calculator import DiffCalculator
 from utils.mock_data import MockDataGenerator
 import json
@@ -28,6 +29,9 @@ import json
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
+
+# Apigee verification setting (disable for development when credentials not available)
+ENABLE_APIGEE_VERIFICATION = os.environ.get("ENABLE_APIGEE_VERIFICATION", "false").strip().lower() in ["true", "1", "yes"]
 
 # MongoDB connection (optional)
 mongo_url = os.environ.get("MONGO_URL", "").strip().lower()
@@ -49,6 +53,86 @@ else:
         print("⚠ Running in no-database mode (configuration will not persist)")
         client = None
         db = None
+
+# Firestore import (for /config/apigee-x endpoint)
+try:
+    from google.cloud import firestore
+    FIRESTORE_AVAILABLE = True
+except ImportError:
+    FIRESTORE_AVAILABLE = False
+    firestore = None
+
+# Firestore connection (for /config/apigee-x and /probestack/v1/auth/apigee endpoints)
+firestore_db_x = None
+firestore_error = None
+if FIRESTORE_AVAILABLE:
+    try:
+        # Check for Firestore emulator (for local development)
+        firestore_emulator = os.environ.get("FIRESTORE_EMULATOR_HOST")
+        if firestore_emulator:
+            print(f"✓ Using Firestore emulator at: {firestore_emulator}")
+            firestore_db_x = firestore.Client()
+        else:
+            # Check for credentials file in local credentials folder
+            credentials_path = None
+            local_credentials = ROOT_DIR / "credentials" / "firestore-credentials.json"
+            if local_credentials.exists():
+                credentials_path = str(local_credentials.absolute())
+                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
+                print(f"✓ Found local Firestore credentials: {credentials_path}")
+            
+            # Also check if GOOGLE_APPLICATION_CREDENTIALS is already set
+            if not credentials_path:
+                credentials_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+                if credentials_path:
+                    print(f"✓ Using Firestore credentials from environment: {credentials_path}")
+            
+            # Try to get project ID from environment, or from credentials file
+            project_id = os.environ.get("GCP_PROJECT_ID") or os.environ.get("GOOGLE_CLOUD_PROJECT")
+            
+            # If we have credentials file, try to read project ID from it
+            if not project_id and credentials_path:
+                try:
+                    import json
+                    with open(credentials_path, 'r') as f:
+                        creds_data = json.load(f)
+                        project_id = creds_data.get("project_id")
+                        if project_id:
+                            print(f"✓ Found project ID in credentials: {project_id}")
+                except Exception as e:
+                    print(f"⚠ Could not read project ID from credentials: {e}")
+            
+            if project_id:
+                firestore_db_x = firestore.Client(project=project_id)
+                print(f"✓ Firestore connected (project: {project_id})")
+            else:
+                # Try without project ID (will use default from GCP credentials)
+                firestore_db_x = firestore.Client()
+                print("✓ Firestore connected (using default project from credentials)")
+        
+        # Test the connection by trying to access a collection
+        try:
+            test_ref = firestore_db_x.collection('_test_connection')
+            # Just verify we can access collections (don't actually write)
+            list(test_ref.limit(1).stream())
+            print("✓ Firestore connection verified")
+        except Exception as test_e:
+            print(f"⚠ Firestore connection test failed: {test_e}")
+            print("⚠ Firestore may not be properly configured - writes may fail")
+            firestore_error = str(test_e)
+    except Exception as e:
+        firestore_error = str(e)
+        print(f"⚠ Firestore connection failed: {firestore_error}")
+        print("⚠ Firestore will use in-memory storage")
+        print("⚠ To enable Firestore, ensure one of the following:")
+        print("   1. Place credentials in: credentials/firestore-credentials.json")
+        print("   2. Set GOOGLE_APPLICATION_CREDENTIALS to path of service account JSON")
+        print("   3. Set GCP_PROJECT_ID environment variable")
+        print("   4. Use Firestore emulator: set FIRESTORE_EMULATOR_HOST=localhost:8080")
+        print(f"   Error: {type(e).__name__}: {firestore_error}")
+        firestore_db_x = None
+else:
+    print("⚠ google-cloud-firestore not installed - Firestore will use in-memory storage")
 
 # Create the main app without a prefix
 app = FastAPI(title="Apigee Edge to X Migration API")
@@ -300,88 +384,436 @@ async def get_edge_assessment():
     
     return assessment
 
-# === Apigee X Configuration Routes ===
+# === Unified Apigee Configuration Routes (Edge and X) ===
 
-@api_router.post("/config/apigee-x")
-async def save_apigee_x_config(config: Dict[str, Any]):
-    """Save Apigee X configuration"""
+@api_router.post("/config/apigee")
+async def save_apigee_config(payload: Dict[str, Any]):
+    """
+    Save Apigee Edge or Apigee X configuration
+    
+    Supports both gateway types:
+    - apigee-edge: Requires userName, password, organization, url, environment
+    - apigee-x: Requires organization, environment, url, apigeeOauthToken
+    """
+    global _in_memory_config
     try:
-        # Validate required fields
-        required_fields = ["apigeex_org_name", "apigeex_token", "apigeex_env"]
-        for field in required_fields:
-            if not config.get(field):
-                raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
+        # Extract and validate gatewayType
+        gateway_type = payload.get("gatewayType", "").lower()
+        if gateway_type not in ["apigee-edge", "apigee-x"]:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid gatewayType: {gateway_type}. Must be 'apigee-edge' or 'apigee-x'"
+            )
         
-        # Add default management URL if not provided
-        if "apigeex_mgmt_url" not in config:
-            config["apigeex_mgmt_url"] = "https://apigee.googleapis.com/v1/organizations/"
+        # Extract fields
+        probestack_user_email = payload.get("probestackUserEmail")
+        organization = payload.get("organization")
+        url = payload.get("url")
+        environment = payload.get("environment")
+        user_name = payload.get("userName")
+        password = payload.get("password")
+        apigee_oauth_token = payload.get("apigeeOauthToken")
         
-        # Add folder name
-        base_dir = os.path.dirname(os.path.abspath(__file__))  # current script directory
-        default_folder = os.path.join(base_dir, "backend", "data_edge")
-        
-        # Use provided folder_name or fallback to default
-        folder_name = config.get("folder_name", default_folder)
-        folder_name = os.path.abspath(folder_name)  # ensure absolute path
-        config["folder_name"] = folder_name
-        
-        # Verify credentials
-        migrator = ApigeeXMigrator(config)
-        success, message = migrator.verify_credentials()
-        
-        if not success:
-            raise HTTPException(status_code=401, detail=message)
-        
-        # Save to database if available
-        if db is not None:
-            await db.apigee_x_config.delete_many({})  # Remove old configs
-            config_doc = {
-                **config,
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "verified": True
+        # Validate based on gateway type
+        if gateway_type == "apigee-edge":
+            # Required fields for Edge
+            required_fields = {
+                "userName": user_name,
+                "password": password,
+                "organization": organization,
+                "url": url,
+                "environment": environment
             }
-            await db.apigee_x_config.insert_one(config_doc)
+            for field_name, field_value in required_fields.items():
+                if not field_value:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Missing required field for apigee-edge: {field_name}"
+                    )
+            
+            # Set default URL if not provided
+            if not url:
+                url = "https://api.enterprise.apigee.com"
+            
+            # Verify Edge credentials (if enabled)
+            # TODO: Enable real verification when Apigee Edge credentials are available
+            # Set ENABLE_APIGEE_VERIFICATION=true environment variable to enable
+            if ENABLE_APIGEE_VERIFICATION:
+                try:
+                    edge_client = ApigeeEdgeClient(
+                        org=organization,
+                        username=user_name,
+                        password=password,
+                        base_url=url
+                    )
+                    # Test connection by getting organization info
+                    status_code, response = edge_client._make_request("GET", "")
+                    if status_code != 200:
+                        raise HTTPException(
+                            status_code=401,
+                            detail=f"Authentication failed: {response.get('error', 'Invalid credentials')}"
+                        )
+                except HTTPException:
+                    raise
+                except Exception as e:
+                    logger.error(f"Edge verification error: {str(e)}")
+                    raise HTTPException(
+                        status_code=401,
+                        detail=f"Connection verification failed: {str(e)}"
+                    )
+            else:
+                # Verification disabled - assume success for development/testing
+                logger.info(f"Apigee Edge verification skipped (ENABLE_APIGEE_VERIFICATION=false). Storing configuration for org: {organization}")
+        
+        elif gateway_type == "apigee-x":
+            # Required fields for X
+            required_fields = {
+                "organization": organization,
+                "environment": environment,
+                "url": url,
+                "apigeeOauthToken": apigee_oauth_token
+            }
+            for field_name, field_value in required_fields.items():
+                if not field_value:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Missing required field for apigee-x: {field_name}"
+                    )
+            
+            # Set default URL if not provided
+            if not url:
+                url = "https://apigee.googleapis.com/v1/organizations/"
+            
+            # Verify X credentials (if enabled)
+            # TODO: Enable real verification when Apigee X credentials are available
+            # Set ENABLE_APIGEE_VERIFICATION=true environment variable to enable
+            if ENABLE_APIGEE_VERIFICATION:
+                try:
+                    # Create config dict for ApigeeXMigrator
+                    x_config = {
+                        "apigeex_org_name": organization,
+                        "apigeex_token": apigee_oauth_token,
+                        "apigeex_env": environment,
+                        "apigeex_mgmt_url": url
+                    }
+                    migrator = ApigeeXMigrator(x_config)
+                    success, message = migrator.verify_credentials()
+                    
+                    if not success:
+                        raise HTTPException(status_code=401, detail=message)
+                except HTTPException:
+                    raise
+                except Exception as e:
+                    logger.error(f"X verification error: {str(e)}")
+                    raise HTTPException(
+                        status_code=401,
+                        detail=f"Connection verification failed: {str(e)}"
+                    )
+            else:
+                # Verification disabled - assume success for development/testing
+                logger.info(f"Apigee X verification skipped (ENABLE_APIGEE_VERIFICATION=false). Storing configuration for org: {organization}")
+        
+        # Check for duplicate configuration before storing
+        # Unique combination: gatewayType + probestackUserEmail + organization + environment + url
+        duplicate_found = False
+        existing_config = None
+        existing_config_doc_id = None
+        
+        if firestore_db_x is not None:
+            try:
+                configs_ref = firestore_db_x.collection('apigee_configs')
+                # Query for existing config with same unique combination
+                query = configs_ref.where('gatewayType', '==', gateway_type) \
+                                  .where('probestackUserEmail', '==', probestack_user_email) \
+                                  .where('organization', '==', organization) \
+                                  .where('environment', '==', environment) \
+                                  .where('url', '==', url)
+                
+                existing_docs = list(query.stream())
+                if existing_docs:
+                    duplicate_found = True
+                    existing_doc = existing_docs[0]
+                    existing_config = existing_doc.to_dict()
+                    existing_config_doc_id = existing_doc.id
+                    logger.info(f"Duplicate configuration found: gatewayType={gateway_type}, org={organization}, env={environment}, user={probestack_user_email}")
+            except Exception as e:
+                logger.warning(f"Could not check for duplicates in Firestore: {e}. Proceeding with storage.")
         else:
-            # Store in memory if no database
-            global _in_memory_config
-            _in_memory_config = config
+            # Check in-memory storage if Firestore not available
+            if _in_memory_config and isinstance(_in_memory_config, dict):
+                if (_in_memory_config.get("gatewayType") == gateway_type and
+                    _in_memory_config.get("probestackUserEmail") == probestack_user_email and
+                    _in_memory_config.get("organization") == organization and
+                    _in_memory_config.get("environment") == environment and
+                    _in_memory_config.get("url") == url):
+                    duplicate_found = True
+                    existing_config = _in_memory_config
+                    logger.info(f"Duplicate configuration found in memory storage")
         
-        return {
-            "success": True,
-            "message": "Configuration saved and verified successfully",
-            "config": {
-                "org_name": config["apigeex_org_name"],
-                "env": config["apigeex_env"]
+        # If duplicate found, return existing configuration
+        if duplicate_found and existing_config:
+            # Simplified response structure
+            response = {
+                "success": True,
+                "message": "Configuration already exists in database. Returning existing configuration.",
+                "verified": existing_config.get("verified", False)
             }
+            
+            if existing_config_doc_id:
+                response["firestore_doc_id"] = existing_config_doc_id
+            
+            # Since we found it in Firestore, mark as existing_fetched
+            if firestore_db_x is not None and existing_config_doc_id:
+                response["firestore_status"] = "existing_fetched"
+            
+            return response
+        
+        # Generate unique config ID if not provided
+        config_id = payload.get("config_id") or str(uuid.uuid4())
+        config_name = payload.get("config_name")
+        if not config_name:
+            if gateway_type == "apigee-edge":
+                config_name = f"{organization}-{environment}"
+            else:
+                config_name = f"{organization}-{environment}"
+        
+        # Determine verification status based on gateway type
+        # Both Edge and X use the same ENABLE_APIGEE_VERIFICATION flag
+        verified = ENABLE_APIGEE_VERIFICATION
+        
+        # Prepare config document for storage
+        config_doc = {
+            "gatewayType": gateway_type,
+            "probestackUserEmail": probestack_user_email,
+            "organization": organization,
+            "url": url,
+            "environment": environment,
+            "config_id": config_id,
+            "config_name": config_name,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "verified": verified,
+            "verified_at": datetime.now(timezone.utc).isoformat(),
+            "verification_skipped": not verified  # Flag to indicate if verification was skipped
         }
+        
+        # Add gateway-specific fields
+        if gateway_type == "apigee-edge":
+            config_doc["userName"] = user_name
+            # Encrypt password before storing
+            try:
+                from utils.credential_encryption import encrypt_credential
+                config_doc["password_encrypted"] = encrypt_credential(password)
+            except ImportError:
+                logger.warning("credential_encryption module not available - storing password unencrypted")
+                config_doc["password"] = password
+            except Exception as e:
+                logger.error(f"Encryption failed: {str(e)} - storing password unencrypted")
+                config_doc["password"] = password
+        elif gateway_type == "apigee-x":
+            # Encrypt OAuth token before storing
+            try:
+                from utils.credential_encryption import encrypt_credential
+                config_doc["apigeeOauthToken_encrypted"] = encrypt_credential(apigee_oauth_token)
+            except ImportError:
+                logger.warning("credential_encryption module not available - storing token unencrypted")
+                config_doc["apigeeOauthToken"] = apigee_oauth_token
+            except Exception as e:
+                logger.error(f"Encryption failed: {str(e)} - storing token unencrypted")
+                config_doc["apigeeOauthToken"] = apigee_oauth_token
+        
+        # Store in Firestore - supports multiple configs
+        stored_in_firestore = False
+        config_doc_id = None
+        storage_error = None
+        
+        if firestore_db_x is not None:
+            try:
+                configs_ref = firestore_db_x.collection('apigee_configs')
+                logger.info(f"Attempting to store config in Firestore collection 'apigee_configs' with config_id: {config_id}")
+                
+                # Check if config with same ID exists (update) or create new
+                existing_docs = list(configs_ref.where('config_id', '==', config_id).stream())
+                if existing_docs:
+                    # Update existing config
+                    doc_ref = existing_docs[0].reference
+                    doc_ref.set(config_doc)
+                    config_doc_id = doc_ref.id
+                    logger.info(f"✓ Updated existing Apigee config in Firestore: {config_id} (doc_id: {config_doc_id})")
+                else:
+                    # Insert new config - Firestore add() returns (timestamp, DocumentReference)
+                    result = configs_ref.add(config_doc)
+                    if isinstance(result, tuple) and len(result) >= 2:
+                        # Firestore add() returns (timestamp, DocumentReference)
+                        doc_ref = result[1]
+                        config_doc_id = doc_ref.id
+                    elif hasattr(result, 'id'):
+                        # If it's just a DocumentReference
+                        config_doc_id = result.id
+                    else:
+                        # Fallback: try to get ID from result
+                        config_doc_id = getattr(result, 'id', None)
+                    
+                    logger.info(f"✓ Successfully stored new Apigee config in Firestore: {config_id} (doc_id: {config_doc_id})")
+                    
+                    # Verify the write by reading it back
+                    if config_doc_id:
+                        try:
+                            verify_doc = configs_ref.document(config_doc_id).get()
+                            if verify_doc.exists:
+                                logger.info(f"✓ Verified: Config document exists in Firestore")
+                            else:
+                                logger.warning(f"⚠ Warning: Config document not found after write (may need a moment to propagate)")
+                        except Exception as verify_e:
+                            logger.warning(f"⚠ Could not verify Firestore write: {verify_e}")
+                
+                stored_in_firestore = True
+                logger.info(f"Config stored successfully. Firestore doc ID: {config_doc_id}")
+            except Exception as e:
+                storage_error = str(e)
+                logger.error(f"✗ Failed to store in Firestore: {storage_error}")
+                logger.exception(e)
+                # Fallback to memory storage
+                logger.warning("Falling back to in-memory storage due to Firestore error")
+                _in_memory_config = config_doc
+        else:
+            # Store in memory (not recommended for production)
+            logger.warning("Firestore not available - storing Apigee config in memory")
+            storage_error = "Firestore client not initialized"
+            _in_memory_config = config_doc
+        
+        # Determine message based on verification status
+        if verified:
+            message = f"Apigee {gateway_type} configuration saved and verified successfully"
+        else:
+            message = f"Apigee {gateway_type} configuration saved successfully (verification skipped)"
+        
+        # Simplified response structure
+        response = {
+            "success": True,
+            "message": message,
+            "verified": verified
+        }
+        
+        if config_doc_id:
+            response["firestore_doc_id"] = config_doc_id
+        
+        # Add Firestore status to response
+        if not stored_in_firestore:
+            if firestore_db_x is None:
+                response["firestore_status"] = "not_available"
+            else:
+                response["firestore_status"] = "write_failed"
+        else:
+            response["firestore_status"] = "stored"
+        
+        return response
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Failed to save config: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@api_router.get("/config/apigee-x")
-async def get_apigee_x_config():
-    """Get saved Apigee X configuration (without sensitive token)"""
-    if db is not None:
-        config = await db.apigee_x_config.find_one({}, {"_id": 0})
-    else:
-        global _in_memory_config
-        config = _in_memory_config
+@api_router.post("/config/apigee/users/{user_id}")
+async def get_user_apigee_configs(user_id: str, payload: Dict[str, Any]):
+    """
+    Get all Apigee configurations for a specific user email
     
-    if not config:
-        return {"configured": False}
+    Path Parameters:
+    - user_id: The user email to fetch configurations for (used as userEmail in query)
     
-    # Remove sensitive information
-    safe_config = {
-        "configured": True,
-        "org_name": config.get("apigeex_org_name"),
-        "env": config.get("apigeex_env"),
-        "mgmt_url": config.get("apigeex_mgmt_url"),
-        "token_preview": config.get("apigeex_token", "")[:10] + "..." if config.get("apigeex_token") else None
-    }
+    Request Body:
+    - gatewayType: "apigee-edge" or "apigee-x" (required)
     
-    return safe_config
+    Returns:
+    - List of configurations with organization, url, environment, gatewayType
+    - Excludes sensitive fields (password, access token)
+    """
+    try:
+        # Validate gatewayType from payload
+        gateway_type = payload.get("gatewayType", "").lower()
+        if gateway_type not in ["apigee-edge", "apigee-x"]:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid gatewayType: {gateway_type}. Must be 'apigee-edge' or 'apigee-x'"
+            )
+        
+        configs = []
+        
+        # Query Firestore for user configurations
+        if firestore_db_x is not None:
+            try:
+                configs_ref = firestore_db_x.collection('apigee_configs')
+                
+                # Query by user email and gateway type
+                query = configs_ref.where('probestackUserEmail', '==', user_id) \
+                                  .where('gatewayType', '==', gateway_type)
+                
+                docs = list(query.stream())
+                
+                for doc in docs:
+                    config_data = doc.to_dict()
+                    
+                    # Build safe config response (exclude sensitive fields)
+                    safe_config = {
+                        "organization": config_data.get("organization"),
+                        "url": config_data.get("url"),
+                        "environment": config_data.get("environment"),
+                        "gatewayType": config_data.get("gatewayType")
+                    }
+                    
+                    # Optionally include additional non-sensitive fields
+                    if config_data.get("config_id"):
+                        safe_config["config_id"] = config_data.get("config_id")
+                    if config_data.get("config_name"):
+                        safe_config["config_name"] = config_data.get("config_name")
+                    if config_data.get("created_at"):
+                        safe_config["created_at"] = config_data.get("created_at")
+                    if config_data.get("verified"):
+                        safe_config["verified"] = config_data.get("verified")
+                    
+                    configs.append(safe_config)
+                
+                logger.info(f"Found {len(configs)} configurations for user {user_id} with gatewayType {gateway_type}")
+                
+            except Exception as e:
+                logger.error(f"Failed to query Firestore: {str(e)}")
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to retrieve configurations: {str(e)}"
+                )
+        else:
+            # Fallback: check in-memory storage
+            logger.warning("Firestore not available - checking in-memory storage")
+            global _in_memory_config
+            if _in_memory_config and isinstance(_in_memory_config, dict):
+                if (_in_memory_config.get("probestackUserEmail") == user_id and
+                    _in_memory_config.get("gatewayType") == gateway_type):
+                    safe_config = {
+                        "organization": _in_memory_config.get("organization"),
+                        "url": _in_memory_config.get("url"),
+                        "environment": _in_memory_config.get("environment"),
+                        "gatewayType": _in_memory_config.get("gatewayType")
+                    }
+                    if _in_memory_config.get("config_id"):
+                        safe_config["config_id"] = _in_memory_config.get("config_id")
+                    if _in_memory_config.get("config_name"):
+                        safe_config["config_name"] = _in_memory_config.get("config_name")
+                    configs.append(safe_config)
+        
+        return {
+            "success": True,
+            "user_email": user_id,
+            "gatewayType": gateway_type,
+            "total_configs": len(configs),
+            "configs": configs
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get user configs: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @api_router.post("/config/verify")
 async def verify_apigee_x_credentials(config: Dict[str, Any]):
@@ -965,24 +1397,68 @@ else:
         "http://localhost:5174"
     ]
 
+# Configure logging first (before using logger)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger_cors = logging.getLogger(__name__)
+logger_cors.info(f"CORS configured with allowed origins: {origins_list}")
+
+# Add CORS middleware with explicit headers (required when allow_credentials=True)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins_list,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"],
+    allow_headers=[
+        "Accept",
+        "Accept-Language",
+        "Content-Language",
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "Origin",
+        "Access-Control-Request-Method",
+        "Access-Control-Request-Headers",
+    ],
     expose_headers=["*"],
+    max_age=3600,  # Cache preflight requests for 1 hour
 )
 
 # Include the router in the main app (after CORS middleware)
 app.include_router(api_router)
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+# Get logger (logging already configured above)
 logger = logging.getLogger(__name__)
+
+# Add explicit OPTIONS handler for all routes as a fallback
+# This ensures preflight requests are handled even if middleware has issues
+@app.options("/{full_path:path}")
+async def options_handler(full_path: str, request: Request):
+    """Handle OPTIONS requests for CORS preflight"""
+    # Get origin from request
+    origin = request.headers.get("Origin", "")
+    
+    # Check if origin is in allowed list
+    if origin in origins_list:
+        allow_origin = origin
+    elif not origins_list:
+        allow_origin = "*"
+    else:
+        # If origin not in list, don't allow (security)
+        allow_origin = origins_list[0] if origins_list else "*"
+    
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": allow_origin,
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD",
+            "Access-Control-Allow-Headers": "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Max-Age": "3600",
+        }
+    )
 
 # === Replace deprecated @app.on_event with lifespan ===
 from contextlib import asynccontextmanager
