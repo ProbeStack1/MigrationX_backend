@@ -27,6 +27,28 @@ from utils.mock_data import MockDataGenerator
 import json
 
 
+# Configure CORS middleware BEFORE including routers
+# This ensures CORS headers are applied to all routes
+allowed_origins = os.environ.get('CORS_ORIGINS', '').strip()
+if allowed_origins:
+    # Split by comma and strip whitespace from each origin
+    origins_list = [origin.strip() for origin in allowed_origins.split(',') if origin.strip()]
+else:
+    # Default allowed origins if CORS_ORIGINS is not set
+    origins_list = [
+        "https://probestack.io",
+        "http://localhost:5173",
+        "http://localhost:5174"
+    ]
+
+# Configure logging first (before using logger)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger_cors = logging.getLogger(__name__)
+logger_cors.info(f"CORS configured with allowed origins: {origins_list}")
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
@@ -137,8 +159,63 @@ else:
 # Create the main app without a prefix
 app = FastAPI(title="Apigee Edge to X Migration API")
 
+# Add CORS middleware with explicit headers (required when allow_credentials=True)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"],
+    allow_headers=[
+        "Accept",
+        "Accept-Language",
+        "Content-Language",
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "Origin",
+        "Access-Control-Request-Method",
+        "Access-Control-Request-Headers",
+    ],
+    expose_headers=["*"],
+    max_age=3600,  # Cache preflight requests for 1 hour
+)
+
+# Get logger (logging already configured above)
+logger = logging.getLogger(__name__)
+
+# Add explicit OPTIONS handler for all routes as a fallback
+# This ensures preflight requests are handled even if middleware has issues
+@app.options("/{full_path:path}")
+async def options_handler(full_path: str, request: Request):
+    """Handle OPTIONS requests for CORS preflight"""
+    # Get origin from request
+    origin = request.headers.get("Origin", "")
+
+    # Check if origin is in allowed list
+    if origin in origins_list:
+        allow_origin = origin
+    elif not origins_list:
+        allow_origin = "*"
+    else:
+        # If origin not in list, don't allow (security)
+        allow_origin = origins_list[0] if origins_list else "*"
+
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": ["*"],
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD",
+            "Access-Control-Allow-Headers": "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Max-Age": "3600",
+        }
+    )
+
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
+
+# Include the router in the main app (after CORS middleware)
+app.include_router(api_router)
 
 # In-memory storage for active migration jobs (in production, use DB)
 active_jobs: Dict[str, MigrationEngine] = {}
@@ -1382,83 +1459,6 @@ async def calculate_diff(payload: Dict[str, Any]):
     diff = calculator.calculate_diff(edge_resource, x_resource, resource_type, resource_name)
     
     return diff.model_dump()
-
-# Configure CORS middleware BEFORE including routers
-# This ensures CORS headers are applied to all routes
-allowed_origins = os.environ.get('CORS_ORIGINS', '').strip()
-if allowed_origins:
-    # Split by comma and strip whitespace from each origin
-    origins_list = [origin.strip() for origin in allowed_origins.split(',') if origin.strip()]
-else:
-    # Default allowed origins if CORS_ORIGINS is not set
-    origins_list = [
-        "https://probestack.io",
-        "http://localhost:5173",
-        "http://localhost:5174"
-    ]
-
-# Configure logging first (before using logger)
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger_cors = logging.getLogger(__name__)
-logger_cors.info(f"CORS configured with allowed origins: {origins_list}")
-
-# Add CORS middleware with explicit headers (required when allow_credentials=True)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"],
-    allow_headers=[
-        "Accept",
-        "Accept-Language",
-        "Content-Language",
-        "Content-Type",
-        "Authorization",
-        "X-Requested-With",
-        "Origin",
-        "Access-Control-Request-Method",
-        "Access-Control-Request-Headers",
-    ],
-    expose_headers=["*"],
-    max_age=3600,  # Cache preflight requests for 1 hour
-)
-
-# Include the router in the main app (after CORS middleware)
-app.include_router(api_router)
-
-# Get logger (logging already configured above)
-logger = logging.getLogger(__name__)
-
-# Add explicit OPTIONS handler for all routes as a fallback
-# This ensures preflight requests are handled even if middleware has issues
-@app.options("/{full_path:path}")
-async def options_handler(full_path: str, request: Request):
-    """Handle OPTIONS requests for CORS preflight"""
-    # Get origin from request
-    origin = request.headers.get("Origin", "")
-    
-    # Check if origin is in allowed list
-    if origin in origins_list:
-        allow_origin = origin
-    elif not origins_list:
-        allow_origin = "*"
-    else:
-        # If origin not in list, don't allow (security)
-        allow_origin = origins_list[0] if origins_list else "*"
-    
-    return Response(
-        status_code=200,
-        headers={
-            "Access-Control-Allow-Origin": allow_origin,
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD",
-            "Access-Control-Allow-Headers": "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
-            "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Max-Age": "3600",
-        }
-    )
 
 # === Replace deprecated @app.on_event with lifespan ===
 from contextlib import asynccontextmanager
