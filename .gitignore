@@ -202,7 +202,6 @@ logs/
 error_log.txt
 
 # Data directories (if containing sensitive data)
-data_edge/
 kvm_migration_folder/
 
 # Temporary files
