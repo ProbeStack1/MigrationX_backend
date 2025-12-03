@@ -296,7 +296,7 @@ class EdgeDataParser:
                         tag = line.split()[0].replace('<', '').replace('>', '')
                         if tag and not tag.startswith('/'):
                             return {
-                                "name": policy_file.stem,python --
+                                "name": policy_file.stem,
                                 "type": tag
                             }
             return None
