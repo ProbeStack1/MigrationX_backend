@@ -954,11 +954,12 @@ async def calculate_diff(payload: Dict[str, Any]):
 # Include the router in the main app
 app.include_router(api_router)
 
+# Add CORS middleware to handle cross-origin requests
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
-    allow_methods=["*"],
+    allow_origins=["*"],  # Allow all origins for development
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 

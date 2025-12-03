@@ -326,7 +326,7 @@ class ApigeeXMigrator:
     
     def migrate_app(self, app_filename: str) -> Dict[str, Any]:
         """
-        Migrate a single developer app.
+        Migrate a single developer app with dependency checking.
         
         Args:
             app_filename: Name of the app file
@@ -379,15 +379,6 @@ class ApigeeXMigrator:
                     "message": f"App '{app_name}' already exists"
                 }
             
-            # Clean up app data - remove Edge-specific fields
-            app_data = {
-                "name": data.get('name'),
-                "status": data.get('status'),
-                "apiProducts": [],
-                "callbackUrl": data.get('callbackUrl', ''),
-                "attributes": data.get('attributes', [])
-            }
-            
             # Extract API products from credentials
             credentials = data.get('credentials', [])
             api_products = []
@@ -397,7 +388,42 @@ class ApigeeXMigrator:
                     if prod_name and prod_name not in api_products:
                         api_products.append(prod_name)
             
-            app_data['apiProducts'] = api_products
+            # Check and migrate dependent API products
+            missing_products = []
+            migrated_products = []
+            
+            for product_name in api_products:
+                if not self.resource_exists("apiproduct", product_name):
+                    # Find product file and migrate it
+                    product_file = self._find_product_file(product_name)
+                    if product_file:
+                        product_result = self.migrate_product(product_file)
+                        if product_result["success"]:
+                            migrated_products.append(product_name)
+                        else:
+                            missing_products.append(product_name)
+                    else:
+                        missing_products.append(product_name)
+            
+            # If any required products couldn't be migrated, fail the app migration
+            if missing_products:
+                return {
+                    "resource_type": "app",
+                    "resource_name": app_filename,
+                    "status_code": 400,
+                    "success": False,
+                    "message": f"Cannot migrate app '{app_name}': Missing API products {missing_products}",
+                    "missing_dependencies": missing_products
+                }
+            
+            # Clean up app data - remove Edge-specific fields
+            app_data = {
+                "name": data.get('name'),
+                "status": data.get('status'),
+                "apiProducts": api_products,
+                "callbackUrl": data.get('callbackUrl', ''),
+                "attributes": data.get('attributes', [])
+            }
             
             # Migrate the app
             status_code, response_text = MigrateResources.Migrate_app(
@@ -408,12 +434,17 @@ class ApigeeXMigrator:
                 app_data
             )
             
+            message = "App migrated successfully"
+            if migrated_products:
+                message += f" (auto-migrated products: {migrated_products})"
+            
             result = {
                 "resource_type": "app",
                 "resource_name": app_filename,
                 "status_code": status_code,
                 "success": status_code == 201,
-                "message": "App migrated successfully" if status_code == 201 else f"Migration failed: {response_text}"
+                "message": message if status_code == 201 else f"Migration failed: {response_text}",
+                "migrated_dependencies": migrated_products
             }
             
             self._log_migration(result)
@@ -427,6 +458,31 @@ class ApigeeXMigrator:
                 "success": False,
                 "message": f"Error: {str(e)}"
             }
+    
+    def _find_product_file(self, product_name: str) -> Optional[str]:
+        """
+        Find the product file by product name.
+        
+        Args:
+            product_name: Name of the API product
+            
+        Returns:
+            Product filename if found, None otherwise
+        """
+        try:
+            prod_dir = os.path.join(self.folder_name, "apiproducts")
+            if not os.path.exists(prod_dir):
+                return None
+                
+            for prod_file in os.listdir(prod_dir):
+                prod_path = os.path.join(prod_dir, prod_file)
+                with open(prod_path, 'r') as f:
+                    prod_data = json.load(f)
+                    if prod_data.get('name') == product_name:
+                        return prod_file
+            return None
+        except Exception:
+            return None
     
     def migrate_proxy(self, proxy_name: str, deploy_after_migration: bool = False) -> Dict[str, Any]:
         """
