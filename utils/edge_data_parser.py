@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 from typing import Dict, List, Any
 import logging
+import zipfile
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,14 @@ class EdgeDataParser:
                 "targets": [],
                 "endpoints": []
             }
+            
+            # Extract zip if directory doesn't exist
+            if not proxy_dir.exists():
+                try:
+                    with zipfile.ZipFile(zip_file, 'r') as zip_ref:
+                        zip_ref.extractall(proxy_dir)
+                except Exception as e:
+                    logger.warning(f"Failed to extract {zip_file}: {e}")
             
             # Parse proxy details if directory exists
             if proxy_dir.exists():
@@ -253,11 +262,9 @@ class EdgeDataParser:
     def _parse_policy(self, policy_file: Path) -> Dict[str, Any]:
         """Parse policy XML file to extract policy type"""
         try:
-            # Simple XML parsing to get policy type
             with open(policy_file, 'r') as f:
                 content = f.read()
                 # Extract policy type from XML root element
-                # This is a simplified approach
                 lines = content.split('\n')
                 for line in lines:
                     line = line.strip()
