@@ -440,14 +440,8 @@ class ApigeeXMigrator:
             Dictionary with migration result
         """
         try:
-            if self.resource_exists("proxy", proxy_name):
-                return {
-                    "resource_type": "proxy",
-                    "resource_name": proxy_name,
-                    "status_code": 409,
-                    "success": False,
-                    "message": f"Proxy '{proxy_name}' already exists"
-                }
+            # Allow migration even if proxy exists - will create a new revision
+            # Note: Apigee X import API will create a new revision if proxy already exists
             proxy_path = os.path.join(self.folder_name, "proxies")
             
             status_code, response_text = MigrateResources.Proxies(
@@ -458,13 +452,40 @@ class ApigeeXMigrator:
                 proxy_name
             )
             
+            # Parse response_text to check if it's JSON (Apigee X API response)
+            api_response_data = None
+            try:
+                if response_text and isinstance(response_text, str):
+                    api_response_data = json.loads(response_text)
+                    print(f"DEBUG: Apigee X API returned JSON response: {api_response_data}")
+            except (json.JSONDecodeError, TypeError):
+                # Response is not JSON, treat as plain text
+                print(f"DEBUG: Apigee X API returned non-JSON response: {response_text}")
+                pass
+            
+            # Check if the API response indicates stub/verification mode
+            is_stub_response = False
+            if api_response_data:
+                verification_mode = api_response_data.get("verification_mode", "")
+                if verification_mode == "stub" or "stub" in str(api_response_data).lower():
+                    is_stub_response = True
+                    print(f"WARNING: Apigee X API returned stub/verification response for proxy {proxy_name}")
+                    print(f"WARNING: This indicates the proxy was NOT actually created in Apigee X")
+            
+            # Always return our formatted result structure, not the raw API response
+            # This ensures consistent response format regardless of what Apigee X API returns
             result = {
                 "resource_type": "proxy",
                 "resource_name": proxy_name,
                 "status_code": status_code,
-                "success": status_code == 200,
-                "message": "Proxy migrated successfully" if status_code == 200 else f"Migration failed: {response_text}"
+                "success": status_code == 200 and not is_stub_response,
+                "message": "Proxy migrated successfully" if (status_code == 200 and not is_stub_response) else f"Migration failed: {response_text}"
             }
+            
+            # Add warning if stub response detected
+            if is_stub_response:
+                result["warning"] = "Apigee X API returned stub/verification response. Proxy may not have been actually created."
+                result["api_response"] = api_response_data  # Include for debugging
             
             # Deploy proxy if migration was successful and deployment is requested
             if result["success"] and deploy_after_migration:
