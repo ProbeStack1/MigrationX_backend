@@ -322,7 +322,7 @@ async def start_migration(job_id: str, background_tasks: BackgroundTasks):
 async def get_migration_progress(job_id: str):
     """
     Get real-time migration progress
-    
+
     Supports both:
     - job_id: MongoDB job ID (legacy)
     - migration_id: Firestore operation_id (new system)
@@ -340,41 +340,41 @@ async def get_migration_progress(job_id: str):
                 # Query for logs with this operation_id
                 query = logs_ref.where('operation_id', '==', job_id)
                 docs = list(query.stream())
-                
+
                 if docs:
                     # Calculate progress from Firestore logs
                     logs_data = [doc.to_dict() for doc in docs]
-                    
+
                     # Extract common metadata
                     resource_type = logs_data[0].get("resource_type") if logs_data else None
                     resource_name = logs_data[0].get("resource_name") if logs_data else None
-                    
+
                     # Analyze logs to determine status
                     status = "completed"
                     has_errors = False
                     has_warnings = False
-                    
+
                     # Get last 10 log messages
                     messages = []
                     for log_data in logs_data:
                         msg = log_data.get("message", "")
                         level = log_data.get("level", "INFO")
                         timestamp = log_data.get("timestamp")
-                        
+
                         messages.append({
                             "message": msg,
                             "level": level,
                             "timestamp": timestamp.isoformat() if timestamp else None
                         })
-                        
+
                         if level == "ERROR":
                             has_errors = True
                         if level == "WARNING":
                             has_warnings = True
-                    
+
                     # Sort messages by timestamp
                     messages.sort(key=lambda x: x.get("timestamp") or "")
-                    
+
                     # Determine status based on logs
                     if has_errors:
                         status = "failed"
@@ -383,12 +383,12 @@ async def get_migration_progress(job_id: str):
                     elif any("starting" in msg.get("message", "").lower() for msg in messages):
                         if not any("completed" in msg.get("message", "").lower() for msg in messages):
                             status = "in_progress"
-                    
+
                     # Calculate progress (for single resource migration)
                     total_resources = 1  # Single resource migration
                     completed_resources = 1 if status == "completed" else 0
                     failed_resources = 1 if status == "failed" else 0
-                    
+
                     return {
                         "migration_id": job_id,
                         "status": status,
@@ -417,7 +417,7 @@ async def get_migration_progress(job_id: str):
         job = await db.migration_jobs.find_one({"id": job_id}, {"_id": 0})
         if not job:
             raise HTTPException(
-                status_code=404, 
+                status_code=404,
                 detail=f"Migration job not found in MongoDB. ID: {job_id}"
             )
 
@@ -450,14 +450,14 @@ async def get_migration_logs_by_id(
 ):
     """
     Get all logs for a specific migration ID
-    
+
     Path Parameters:
     - migration_id: The migration ID (operation_id) to fetch logs for
-    
+
     Query Parameters:
     - limit: Maximum number of logs to return (default: 1000, max: 1000)
     - level: Filter by log level (INFO, WARNING, ERROR) - optional
-    
+
     Returns:
     - All log entries for the specified migration, ordered by timestamp (oldest first)
     """
@@ -467,21 +467,21 @@ async def get_migration_logs_by_id(
                 status_code=503,
                 detail="Firestore is not available. Logs cannot be retrieved."
             )
-        
+
         # Validate limit
         if limit > 1000:
             limit = 1000
         if limit < 1:
             limit = 1000
-        
+
         logger.info(f"Fetching logs for migration_id: {migration_id}")
-        
+
         # Get logs collection and filter by operation_id (which equals migration_id)
         logs_ref = firestore_db_x.collection('migration_logs')
         # Query without order_by to avoid composite index requirement
         # We'll sort in Python after fetching
         query = logs_ref.where('operation_id', '==', migration_id)
-        
+
         # Apply level filter if provided
         if level:
             level_upper = level.upper()
@@ -491,11 +491,11 @@ async def get_migration_logs_by_id(
                     detail=f"Invalid log level: {level}. Must be INFO, WARNING, or ERROR"
                 )
             query = query.where('level', '==', level_upper)
-        
+
         # Execute query without order_by to avoid index requirement
         # We'll sort in Python instead
         docs = list(query.stream())
-        
+
         # Sort by timestamp in Python (oldest first) to show chronological progression
         # Filter out docs without timestamp and sort
         docs_with_timestamp = []
@@ -506,16 +506,16 @@ async def get_migration_logs_by_id(
                 docs_with_timestamp.append(doc)
             else:
                 docs_without_timestamp.append(doc)
-        
+
         # Sort by timestamp
         docs_with_timestamp.sort(key=lambda doc: doc.to_dict().get("timestamp") or datetime.min.replace(tzinfo=timezone.utc))
-        
+
         # Combine: timestamped docs first (sorted), then docs without timestamp
         docs = docs_with_timestamp + docs_without_timestamp
-        
+
         # Apply limit after sorting
         docs = docs[:limit]
-        
+
         # Extract common metadata and messages
         common_metadata = {
             "resource_type": None,
@@ -523,15 +523,15 @@ async def get_migration_logs_by_id(
         }
         messages = []
         level_counts = {"INFO": 0, "WARNING": 0, "ERROR": 0}
-        
+
         for doc in docs:
             doc_data = doc.to_dict()
-            
+
             # Extract common metadata from first log entry (all should have same values)
             if common_metadata["resource_type"] is None:
                 common_metadata["resource_type"] = doc_data.get("resource_type")
                 common_metadata["resource_name"] = doc_data.get("resource_name")
-            
+
             # Extract message with minimal fields for easy reading
             message_entry = {
                 "message": doc_data.get("message", ""),
@@ -539,14 +539,14 @@ async def get_migration_logs_by_id(
                 "timestamp": doc_data.get("timestamp").isoformat() if doc_data.get("timestamp") else None
             }
             messages.append(message_entry)
-            
+
             # Count log levels
             log_level = doc_data.get("level", "INFO")
             if log_level in level_counts:
                 level_counts[log_level] += 1
-        
+
         logger.info(f"Retrieved {len(messages)} log entries for migration {migration_id}")
-        
+
         # Build response with common metadata at top level
         response = {
             "success": True,
@@ -563,9 +563,9 @@ async def get_migration_logs_by_id(
             },
             "messages": messages
         }
-        
+
         return response
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -590,10 +590,10 @@ async def get_migration_logs(
 ):
     """
     Get migration logs from MongoDB and/or Firestore
-    
+
     Path Parameters:
     - job_id: Migration job ID (for MongoDB logs)
-    
+
     Query Parameters:
     - operation_id: Filter Firestore logs by operation ID
     - resource_type: Filter Firestore logs by resource type (app, proxy, kvm, etc.)
@@ -603,7 +603,7 @@ async def get_migration_logs(
     - start_date: Start date in ISO format for Firestore logs (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)
     - end_date: End date in ISO format for Firestore logs (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)
     - source: Source of logs - "mongo", "firestore", or "both" (default: "both")
-    
+
     Returns:
     - MongoDB logs (if available and source includes "mongo")
     - Firestore logs (if available and source includes "firestore")
@@ -615,7 +615,7 @@ async def get_migration_logs(
         "mongo_available": False,
         "firestore_available": False
     }
-    
+
     # Get MongoDB logs if requested
     if source in ["mongo", "both"]:
         try:
@@ -648,7 +648,7 @@ async def get_migration_logs(
                 "warnings": [],
                 "error": str(e)
             }
-    
+
     # Get Firestore logs if requested
     if source in ["firestore", "both"]:
         try:
@@ -663,24 +663,24 @@ async def get_migration_logs(
                     limit = 1000
                 if limit < 1:
                     limit = 1000
-                
+
                 logger.info(f"Fetching Firestore migration logs with filters: operation_id={operation_id}, "
                            f"resource_type={resource_type}, resource_name={resource_name}, level={level}, limit={limit}")
-                
+
                 # Get logs collection
                 logs_ref = firestore_db_x.collection('migration_logs')
                 query = logs_ref
-                
+
                 # Apply filters
                 if operation_id:
                     query = query.where('operation_id', '==', operation_id)
-                
+
                 if resource_type:
                     query = query.where('resource_type', '==', resource_type)
-                
+
                 if resource_name:
                     query = query.where('resource_name', '==', resource_name)
-                
+
                 if level:
                     level_upper = level.upper()
                     if level_upper not in ['INFO', 'WARNING', 'ERROR']:
@@ -689,7 +689,7 @@ async def get_migration_logs(
                             detail=f"Invalid log level: {level}. Must be INFO, WARNING, or ERROR"
                         )
                     query = query.where('level', '==', level_upper)
-                
+
                 # Date filtering
                 if start_date:
                     try:
@@ -706,7 +706,7 @@ async def get_migration_logs(
                             status_code=400,
                             detail=f"Invalid start_date format: {start_date}. Use ISO format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)"
                         )
-                
+
                 if end_date:
                     try:
                         from datetime import datetime as dt
@@ -722,13 +722,13 @@ async def get_migration_logs(
                             status_code=400,
                             detail=f"Invalid end_date format: {end_date}. Use ISO format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)"
                         )
-                
+
                 # Order by timestamp (newest first) and limit
                 query = query.order_by('timestamp', direction=firestore.Query.DESCENDING).limit(limit)
-                
+
                 # Execute query
                 docs = list(query.stream())
-                
+
                 # Convert Firestore documents to dictionaries
                 logs = []
                 for doc in docs:
@@ -744,9 +744,9 @@ async def get_migration_logs(
                         "metadata": doc_data.get("metadata", {})
                     }
                     logs.append(log_entry)
-                
+
                 logger.info(f"Retrieved {len(logs)} log entries from Firestore")
-                
+
                 result["firestore_logs"] = {
                     "logs": logs,
                     "count": len(logs),
@@ -761,7 +761,7 @@ async def get_migration_logs(
                     }
                 }
                 result["firestore_available"] = True
-                
+
         except HTTPException:
             raise
         except Exception as e:
@@ -771,7 +771,7 @@ async def get_migration_logs(
                 "logs": [],
                 "error": str(e)
             }
-    
+
     return result
 
 
@@ -1357,11 +1357,11 @@ async def migrate_single_resource(payload: Dict[str, Any]):
     operation_id = generate_operation_id()
     resource_type = payload.get("resource_type")
     resource_name = payload.get("resource_name")
-    
+
     log_info("=" * 80, operation_id, resource_type, resource_name)
     log_info("🚀 Starting resource migration API call", operation_id, resource_type, resource_name)
-    log_info(f"Request payload: resource_type={resource_type}, resource_name={resource_name}", 
-             operation_id, resource_type, resource_name, 
+    log_info(f"Request payload: resource_type={resource_type}, resource_name={resource_name}",
+             operation_id, resource_type, resource_name,
              metadata={"operation_id": operation_id, "payload": payload})
     log_info("=" * 80, operation_id, resource_type, resource_name)
 
@@ -1370,16 +1370,16 @@ async def migrate_single_resource(payload: Dict[str, Any]):
         # 1. LOAD CONFIG FROM INPUT PAYLOAD (FIRST PRIORITY)
         # ======================================================
         config = payload.get("apigee_x_config")
-        
+
         if config:
             log_info("✓ Apigee X configuration found in input payload", operation_id, resource_type, resource_name)
             log_info("✓ Config is fetched from input", operation_id, resource_type, resource_name)
-            log_info(f"Using config from payload (org: {config.get('apigeex_org_name')}, env: {config.get('apigeex_env')})", 
+            log_info(f"Using config from payload (org: {config.get('apigeex_org_name')}, env: {config.get('apigeex_env')})",
                      operation_id, resource_type, resource_name)
             if config.get("apigeex_token"):
                 log_info("✓ Token found in input payload", operation_id, resource_type, resource_name)
         else:
-            log_info("No Apigee X configuration found in input payload, attempting to fetch from Firestore", 
+            log_info("No Apigee X configuration found in input payload, attempting to fetch from Firestore",
                      operation_id, resource_type, resource_name)
 
         # ======================================================
@@ -1387,7 +1387,7 @@ async def migrate_single_resource(payload: Dict[str, Any]):
         # ======================================================
         if not config and firestore_db_x is not None:
             try:
-                log_info("Attempting to fetch Apigee X configuration from Firestore collection 'apigee_x_config'", 
+                log_info("Attempting to fetch Apigee X configuration from Firestore collection 'apigee_x_config'",
                          operation_id, resource_type, resource_name)
                 configs_ref = firestore_db_x.collection('apigee_x_config')
 
@@ -1399,9 +1399,9 @@ async def migrate_single_resource(payload: Dict[str, Any]):
                     doc = docs[0]
                     config_data = doc.to_dict()
 
-                    log_info(f"Found document in apigee_x_config collection (doc_id: {doc.id})", 
+                    log_info(f"Found document in apigee_x_config collection (doc_id: {doc.id})",
                             operation_id, resource_type, resource_name)
-                    log_info(f"Document data keys: {list(config_data.keys()) if config_data else 'None'}", 
+                    log_info(f"Document data keys: {list(config_data.keys()) if config_data else 'None'}",
                             operation_id, resource_type, resource_name)
 
                     # Transform Firestore document format to expected config format
@@ -1414,17 +1414,17 @@ async def migrate_single_resource(payload: Dict[str, Any]):
                     }
 
                     log_info("✓ Config is fetched from db", operation_id, resource_type, resource_name)
-                    log_info(f"✓ Successfully fetched Apigee X configuration from Firestore (org: {config.get('apigeex_org_name')}, env: {config.get('apigeex_env')})", 
+                    log_info(f"✓ Successfully fetched Apigee X configuration from Firestore (org: {config.get('apigeex_org_name')}, env: {config.get('apigeex_env')})",
                             operation_id, resource_type, resource_name)
-                    log_info(f"✓ Token fetched from Firestore database collection 'apigee_x_config' (doc_id: {doc.id})", 
+                    log_info(f"✓ Token fetched from Firestore database collection 'apigee_x_config' (doc_id: {doc.id})",
                             operation_id, resource_type, resource_name)
                 else:
-                    log_warning("No documents found in Firestore collection 'apigee_x_config'", 
+                    log_warning("No documents found in Firestore collection 'apigee_x_config'",
                               operation_id, resource_type, resource_name)
                     config = None
 
             except Exception as e:
-                log_error(f"Failed to fetch config from Firestore collection 'apigee_x_config': {str(e)}", 
+                log_error(f"Failed to fetch config from Firestore collection 'apigee_x_config': {str(e)}",
                          operation_id, resource_type, resource_name, metadata={"error": str(e)})
                 logger.exception(e)
                 config = None  # Firestore not available or query failed
@@ -1458,8 +1458,8 @@ async def migrate_single_resource(payload: Dict[str, Any]):
             log_info(f"Using default management URL: {config['apigeex_mgmt_url']}", operation_id, resource_type, resource_name)
         else:
             log_info(f"Using management URL: {config['apigeex_mgmt_url']}", operation_id, resource_type, resource_name)
-        
-        log_info(f"Configuration validated - Org: {config.get('apigeex_org_name')}, Env: {config.get('apigeex_env')}", 
+
+        log_info(f"Configuration validated - Org: {config.get('apigeex_org_name')}, Env: {config.get('apigeex_env')}",
                 operation_id, resource_type, resource_name)
 
         # ======================================================
@@ -1468,8 +1468,8 @@ async def migrate_single_resource(payload: Dict[str, Any]):
         log_info("-" * 80, operation_id, resource_type, resource_name)
         log_info("📋 Processing resource migration request", operation_id, resource_type, resource_name)
         log_info("-" * 80, operation_id, resource_type, resource_name)
-        
-        log_info(f"Received resource_type: '{resource_type}', resource_name: '{resource_name}'", 
+
+        log_info(f"Received resource_type: '{resource_type}', resource_name: '{resource_name}'",
                 operation_id, resource_type, resource_name)
 
         normalize_map = {
@@ -1496,7 +1496,7 @@ async def migrate_single_resource(payload: Dict[str, Any]):
             )
 
         if not resource_type or not resource_name:
-            log_error("❌ Missing required fields: resource_type and resource_name are required", 
+            log_error("❌ Missing required fields: resource_type and resource_name are required",
                     operation_id, resource_type, resource_name)
             raise HTTPException(status_code=400, detail="resource_type and resource_name are required")
 
@@ -1511,7 +1511,7 @@ async def migrate_single_resource(payload: Dict[str, Any]):
         log_info(f"   Organization: {config.get('apigeex_org_name')}", operation_id, resource_type, resource_name)
         log_info(f"   Environment: {config.get('apigeex_env')}", operation_id, resource_type, resource_name)
         log_info(f"   Management URL: {config.get('apigeex_mgmt_url')}", operation_id, resource_type, resource_name)
-        
+
         migrator = ApigeeXMigrator(config)
         log_info("✓ Apigee X Migrator initialized successfully", operation_id, resource_type, resource_name)
 
@@ -1520,9 +1520,9 @@ async def migrate_single_resource(payload: Dict[str, Any]):
         # ======================================================
         log_info("-" * 80, operation_id, resource_type, resource_name)
         log_info("🔌 Establishing connection to Apigee X...", operation_id, resource_type, resource_name)
-        log_info(f"   Connecting to: {config.get('apigeex_mgmt_url')}{config.get('apigeex_org_name')}", 
+        log_info(f"   Connecting to: {config.get('apigeex_mgmt_url')}{config.get('apigeex_org_name')}",
                 operation_id, resource_type, resource_name)
-        
+
         try:
             connection_success, connection_message = migrator.verify_credentials()
             if connection_success:
@@ -1546,9 +1546,9 @@ async def migrate_single_resource(payload: Dict[str, Any]):
                 status_code=500,
                 detail=f"Connection error: {str(e)}"
             )
-        
+
         log_success("✅ Apigee X connection verified and ready", operation_id, resource_type, resource_name)
-        
+
         # ======================================================
         # 8. EXECUTE RESOURCE CREATION/MIGRATION
         # ======================================================
@@ -1601,7 +1601,7 @@ async def migrate_single_resource(payload: Dict[str, Any]):
             log_info("-" * 80, operation_id, resource_type, resource_name)
             log_info("📊 Migration execution completed", operation_id, resource_type, resource_name)
             log_info(f"   Result: {result}", operation_id, resource_type, resource_name, metadata={"result": str(result)})
-            
+
             if isinstance(result, dict):
                 success = result.get("success", False)
                 if success:
@@ -1613,7 +1613,7 @@ async def migrate_single_resource(payload: Dict[str, Any]):
                               metadata={"message": result.get('message', 'No message provided')})
             else:
                 log_success("✅ Resource creation/migration completed", operation_id, resource_type, resource_name)
-            
+
             log_info("=" * 80, operation_id, resource_type, resource_name)
             log_success("🎉 API call completed successfully", operation_id, resource_type, resource_name)
             log_info("=" * 80, operation_id, resource_type, resource_name)
@@ -1647,7 +1647,7 @@ async def migrate_single_resource(payload: Dict[str, Any]):
         # Use payload values in case resource_type/resource_name weren't set yet
         error_resource_type = resource_type if 'resource_type' in locals() else payload.get('resource_type', 'unknown')
         error_resource_name = resource_name if 'resource_name' in locals() else payload.get('resource_name', 'unknown')
-        
+
         log_error("=" * 80, operation_id, error_resource_type, error_resource_name)
         log_error(f"❌ HTTP Exception occurred: {http_ex.status_code} - {http_ex.detail}", operation_id, error_resource_type, error_resource_name,
                  metadata={"status_code": http_ex.status_code, "detail": http_ex.detail})
@@ -1658,7 +1658,7 @@ async def migrate_single_resource(payload: Dict[str, Any]):
         # Use payload values in case resource_type/resource_name weren't set yet
         error_resource_type = resource_type if 'resource_type' in locals() else payload.get('resource_type', 'unknown')
         error_resource_name = resource_name if 'resource_name' in locals() else payload.get('resource_name', 'unknown')
-        
+
         log_error("=" * 80, operation_id, error_resource_type, error_resource_name)
         log_error(f"❌ Migration API call failed with exception: {str(e)}", operation_id, error_resource_type, error_resource_name,
                  metadata={"error": str(e), "error_type": type(e).__name__})
@@ -1666,10 +1666,10 @@ async def migrate_single_resource(payload: Dict[str, Any]):
         log_error(f"   Resource Name: {error_resource_name}", operation_id, error_resource_type, error_resource_name)
         logger.exception(e)
         log_error("=" * 80, operation_id, error_resource_type, error_resource_name)
-        
+
         # Ensure operation_id is available even in error cases
         error_operation_id = operation_id if 'operation_id' in locals() else generate_operation_id()
-        
+
         return {
             "success": False,
             "migration_id": error_operation_id,
@@ -1692,7 +1692,7 @@ async def get_all_migration_logs(
     """
     Get all migration logs from Firestore with optional filtering
     (Does not require a job_id - fetches all logs)
-    
+
     Query Parameters:
     - operation_id: Filter logs by operation ID (groups all logs from one operation)
     - resource_type: Filter by resource type (app, proxy, kvm, etc.)
@@ -1701,7 +1701,7 @@ async def get_all_migration_logs(
     - limit: Maximum number of logs to return (default: 100, max: 1000)
     - start_date: Start date in ISO format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)
     - end_date: End date in ISO format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)
-    
+
     Returns:
     - List of log entries with metadata
     """
@@ -1711,31 +1711,31 @@ async def get_all_migration_logs(
             limit = 1000
         if limit < 1:
             limit = 100
-        
+
         # Check if Firestore is available
         if firestore_db_x is None:
             raise HTTPException(
                 status_code=503,
                 detail="Firestore is not available. Logs cannot be retrieved."
             )
-        
+
         logger.info(f"Fetching all migration logs with filters: operation_id={operation_id}, "
                    f"resource_type={resource_type}, resource_name={resource_name}, level={level}, limit={limit}")
-        
+
         # Get logs collection
         logs_ref = firestore_db_x.collection('migration_logs')
         query = logs_ref
-        
+
         # Apply filters
         if operation_id:
             query = query.where('operation_id', '==', operation_id)
-        
+
         if resource_type:
             query = query.where('resource_type', '==', resource_type)
-        
+
         if resource_name:
             query = query.where('resource_name', '==', resource_name)
-        
+
         if level:
             level_upper = level.upper()
             if level_upper not in ['INFO', 'WARNING', 'ERROR']:
@@ -1744,7 +1744,7 @@ async def get_all_migration_logs(
                     detail=f"Invalid log level: {level}. Must be INFO, WARNING, or ERROR"
                 )
             query = query.where('level', '==', level_upper)
-        
+
         # Date filtering
         if start_date:
             try:
@@ -1761,7 +1761,7 @@ async def get_all_migration_logs(
                     status_code=400,
                     detail=f"Invalid start_date format: {start_date}. Use ISO format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)"
                 )
-        
+
         if end_date:
             try:
                 from datetime import datetime as dt
@@ -1777,13 +1777,13 @@ async def get_all_migration_logs(
                     status_code=400,
                     detail=f"Invalid end_date format: {end_date}. Use ISO format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)"
                 )
-        
+
         # Order by timestamp (newest first) and limit
         query = query.order_by('timestamp', direction=firestore.Query.DESCENDING).limit(limit)
-        
+
         # Execute query
         docs = list(query.stream())
-        
+
         # Convert Firestore documents to dictionaries
         logs = []
         for doc in docs:
@@ -1799,9 +1799,9 @@ async def get_all_migration_logs(
                 "metadata": doc_data.get("metadata", {})
             }
             logs.append(log_entry)
-        
+
         logger.info(f"Retrieved {len(logs)} log entries from Firestore")
-        
+
         return {
             "success": True,
             "count": len(logs),
@@ -1816,7 +1816,7 @@ async def get_all_migration_logs(
             },
             "logs": logs
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
