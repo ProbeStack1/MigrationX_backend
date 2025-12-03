@@ -35,6 +35,7 @@ class MigrationAssessment:
         self.assessment_results = {
             "summary": {},
             "proxy_assessments": [],
+            "shared_flow_assessments": [],
             "target_server_assessments": [],
             "kvm_assessments": [],
             "api_product_assessments": [],
@@ -53,6 +54,12 @@ class MigrationAssessment:
             for proxy in edge_data["proxies"]:
                 assessment = self._assess_proxy(proxy)
                 self.assessment_results["proxy_assessments"].append(assessment)
+        
+        # Assess shared flows
+        if edge_data.get("shared_flows"):
+            for shared_flow in edge_data["shared_flows"]:
+                assessment = self._assess_shared_flow(shared_flow)
+                self.assessment_results["shared_flow_assessments"].append(assessment)
         
         # Assess target servers
         if edge_data.get("target_servers"):
@@ -166,6 +173,70 @@ class MigrationAssessment:
                 "type": "Configuration",
                 "severity": "low",
                 "message": "Proxy has no policies - verify this is intentional"
+            })
+        
+        return assessment
+    
+    def _assess_shared_flow(self, shared_flow: Dict[str, Any]) -> Dict[str, Any]:
+        """Assess a shared flow"""
+        assessment = {
+            "name": shared_flow.get("name"),
+            "type": "Shared Flow",
+            "status": "ready",
+            "issues": [],
+            "warnings": [],
+            "recommendations": [],
+            "policy_analysis": {
+                "total": len(shared_flow.get("policies", [])),
+                "unsupported": 0,
+                "needs_transformation": 0,
+                "warnings": 0
+            }
+        }
+        
+        policies = shared_flow.get("policies", [])
+        
+        # Analyze each policy (same logic as proxy)
+        for policy in policies:
+            policy_type = policy.get("type")
+            policy_name = policy.get("name")
+            
+            if policy_type in self.UNSUPPORTED_POLICIES:
+                assessment["issues"].append({
+                    "policy": policy_name,
+                    "type": policy_type,
+                    "severity": "high",
+                    "message": self.UNSUPPORTED_POLICIES[policy_type]
+                })
+                assessment["policy_analysis"]["unsupported"] += 1
+                assessment["status"] = "blocked"
+            
+            elif policy_type in self.TRANSFORMATION_NEEDED:
+                assessment["warnings"].append({
+                    "policy": policy_name,
+                    "type": policy_type,
+                    "severity": "medium",
+                    "message": self.TRANSFORMATION_NEEDED[policy_type]
+                })
+                assessment["policy_analysis"]["needs_transformation"] += 1
+                if assessment["status"] == "ready":
+                    assessment["status"] = "warning"
+            
+            elif policy_type in self.WARNING_POLICIES:
+                assessment["warnings"].append({
+                    "policy": policy_name,
+                    "type": policy_type,
+                    "severity": "low",
+                    "message": self.WARNING_POLICIES[policy_type]
+                })
+                assessment["policy_analysis"]["warnings"] += 1
+        
+        if len(policies) == 0:
+            assessment["warnings"].append({
+                "policy": "N/A",
+                "type": "Configuration",
+                "severity": "low",
+                "message": "Shared flow has no policies - verify this is intentional"
             })
         
         return assessment
@@ -348,6 +419,10 @@ class MigrationAssessment:
             total_issues += len(assessment.get("issues", []))
             total_warnings += len(assessment.get("warnings", []))
         
+        for assessment in self.assessment_results["shared_flow_assessments"]:
+            total_issues += len(assessment.get("issues", []))
+            total_warnings += len(assessment.get("warnings", []))
+        
         for assessment in self.assessment_results["target_server_assessments"]:
             total_issues += len(assessment.get("issues", []))
             total_warnings += len(assessment.get("warnings", []))
@@ -355,18 +430,23 @@ class MigrationAssessment:
         for assessment in self.assessment_results["kvm_assessments"]:
             total_issues += len(assessment.get("issues", []))
             total_warnings += len(assessment.get("warnings", []))
-            
         
         self.assessment_results["total_issues"] = total_issues
         self.assessment_results["total_warnings"] = total_warnings
         
-        # Count by status
+        # Count by status (include both proxies and shared flows)
         ready_count = sum(1 for a in self.assessment_results["proxy_assessments"] if a["status"] == "ready")
+        ready_count += sum(1 for a in self.assessment_results["shared_flow_assessments"] if a["status"] == "ready")
+        
         warning_count = sum(1 for a in self.assessment_results["proxy_assessments"] if a["status"] == "warning")
+        warning_count += sum(1 for a in self.assessment_results["shared_flow_assessments"] if a["status"] == "warning")
+        
         blocked_count = sum(1 for a in self.assessment_results["proxy_assessments"] if a["status"] == "blocked")
+        blocked_count += sum(1 for a in self.assessment_results["shared_flow_assessments"] if a["status"] == "blocked")
         
         self.assessment_results["summary"] = {
             "total_proxies": len(edge_data.get("proxies", [])),
+            "total_shared_flows": len(edge_data.get("shared_flows", [])),
             "total_target_servers": len(edge_data.get("target_servers", [])),
             "total_kvms": len(edge_data.get("kvms", [])),
             "total_api_products": len(edge_data.get("api_products", [])),

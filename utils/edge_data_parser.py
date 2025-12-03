@@ -97,11 +97,34 @@ class EdgeDataParser:
             return flows
         
         for zip_file in flows_dir.glob("*.zip"):
+            flow_name = zip_file.stem
+            flow_dir = flows_dir / flow_name
+            
             flow_data = {
-                "name": zip_file.stem,
+                "name": flow_name,
                 "type": "Shared Flow",
-                "bundle_path": str(zip_file)
+                "bundle_path": str(zip_file),
+                "policies": []
             }
+            
+            # Extract zip if directory doesn't exist
+            if not flow_dir.exists():
+                try:
+                    with zipfile.ZipFile(zip_file, 'r') as zip_ref:
+                        zip_ref.extractall(flow_dir)
+                except Exception as e:
+                    logger.warning(f"Failed to extract {zip_file}: {e}")
+            
+            # Parse shared flow policies if directory exists
+            if flow_dir.exists():
+                policies_dir = flow_dir / "sharedflowbundle" / "policies"
+                if policies_dir.exists():
+                    for policy_file in policies_dir.glob("*.xml"):
+                        policy_data = self._parse_policy(policy_file)
+                        if policy_data:
+                            flow_data["policies"].append(policy_data)
+            
+            flow_data["policy_count"] = len(flow_data["policies"])
             flows.append(flow_data)
         
         return flows
@@ -273,7 +296,7 @@ class EdgeDataParser:
                         tag = line.split()[0].replace('<', '').replace('>', '')
                         if tag and not tag.startswith('/'):
                             return {
-                                "name": policy_file.stem,
+                                "name": policy_file.stem,python --
                                 "type": tag
                             }
             return None
