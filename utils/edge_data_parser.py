@@ -285,20 +285,19 @@ class EdgeDataParser:
     def _parse_policy(self, policy_file: Path) -> Dict[str, Any]:
         """Parse policy XML file to extract policy type"""
         try:
-            with open(policy_file, 'r') as f:
+            with open(policy_file, 'r', encoding='utf-8') as f:
                 content = f.read()
+                
                 # Extract policy type from XML root element
-                lines = content.split('\n')
-                for line in lines:
-                    line = line.strip()
-                    if line.startswith('<') and not line.startswith('<?xml'):
-                        # Extract tag name
-                        tag = line.split()[0].replace('<', '').replace('>', '')
-                        if tag and not tag.startswith('/'):
-                            return {
-                                "name": policy_file.stem,
-                                "type": tag
-                            }
+                import re
+                # Find the first XML tag that's not the XML declaration
+                match = re.search(r'<([a-zA-Z][a-zA-Z0-9_-]*)', content)
+                if match:
+                    policy_type = match.group(1)
+                    return {
+                        "name": policy_file.stem,
+                        "type": policy_type
+                    }
             return None
         except Exception as e:
             logger.error(f"Failed to parse policy {policy_file}: {e}")
