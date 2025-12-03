@@ -844,7 +844,7 @@ async def save_apigee_config(payload: Dict[str, Any]):
         organization = payload.get("organization")
         url = payload.get("url")
         environment = payload.get("environment")
-        user_name = payload.get("userName")
+        user_name = payload.get("userName") or payload.get("username")
         password = payload.get("password")
         apigee_oauth_token = payload.get("apigeeOauthToken")
 
