@@ -9,7 +9,7 @@ on:
 env:
   PROJECT_ID: probestack-e2068
   SERVICE_ACCOUNT_EMAIL: github-actions-deployer@probestack-e2068.iam.gserviceaccount.com
-  SERVICE_NAME: migrationx-backend-service
+  SERVICE_NAME: migration-service
   REGION: us-central1
 
 jobs:
