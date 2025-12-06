@@ -3,7 +3,7 @@ name: Deploy to Google Cloud Run
 on:
   push:
     branches:
-      - main
+      - ankit_logger_changes
 
 # Define environment variables to make the script cleaner
 env:
