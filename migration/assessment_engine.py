@@ -15,20 +15,27 @@ class MigrationAssessment:
         "JSONToXML": "Deprecated - use other methods",
         "StatisticsCollector": "Use Analytics API instead",
         "AccessEntity": "Limited support in X",
+        "NodeJS": "Not supported in Apigee X",
+        "LookupCache": "Use ResponseCache policy instead",
+        "PopulateCache": "Use ResponseCache policy instead",
+        "InvalidateCache": "Use ResponseCache policy instead"
     }
     
     # Policies that need transformation
     TRANSFORMATION_NEEDED = {
         "JavaCallout": "Requires conversion to Extension Callout",
         "Python": "Requires conversion to Extension Callout",
-        "Javascript": "Review for compatibility",
+        "Javascript": "Review for compatibility - may need updates",
+        "Script": "Review JavaScript code for compatibility"
     }
     
     # Policies with potential issues
     WARNING_POLICIES = {
         "ServiceCallout": "Check target server compatibility",
         "MessageLogging": "Verify logging configuration",
-        "Script": "Review and test thoroughly",
+        "AssignMessage": "Review variable assignments",
+        "ExtractVariables": "Review extraction patterns",
+        "RaiseFault": "Review fault handling"
     }
     
     def __init__(self):

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<StatisticsCollector continueOnError="false" enabled="true" name="StatsCollector-Policy">
+    <DisplayName>Statistics Collector</DisplayName>
+    <Properties/>
+    <Statistics>
+        <Statistic name="request_count" ref="message.verb" type="string">1</Statistic>
+        <Statistic name="response_time" ref="system.timestamp" type="long">{system.timestamp}</Statistic>
+    </Statistics>
+</StatisticsCollector>

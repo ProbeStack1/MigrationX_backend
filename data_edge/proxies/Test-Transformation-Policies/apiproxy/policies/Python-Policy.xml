@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Python continueOnError="false" enabled="true" name="Python-Policy">
+    <DisplayName>Python Script Policy</DisplayName>
+    <Properties>
+        <Property name="python-resource">python-script.py</Property>
+    </Properties>
+    <ResourceURL>py://python-script.py</ResourceURL>
+    <IncludeURL>py://common-utils.py</IncludeURL>
+</Python>

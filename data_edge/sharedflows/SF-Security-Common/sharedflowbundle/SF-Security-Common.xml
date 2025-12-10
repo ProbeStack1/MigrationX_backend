@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<SharedFlowBundle revision="1" name="SF-Security-Common">
+    <ConfigurationVersion majorVersion="4" minorVersion="0"/>
+    <CreatedAt>1640995200000</CreatedAt>
+    <CreatedBy>test@example.com</CreatedBy>
+    <Description>Common security policies shared flow</Description>
+    <DisplayName>Security Common SharedFlow</DisplayName>
+    <LastModifiedAt>1640995200000</LastModifiedAt>
+    <LastModifiedBy>test@example.com</LastModifiedBy>
+    <Policies>
+        <Policy>VerifyAPIKey-Policy</Policy>
+        <Policy>Quota-Policy</Policy>
+        <Policy>SpikeArrest-Policy</Policy>
+    </Policies>
+    <SharedFlows>
+        <SharedFlow>default</SharedFlow>
+    </SharedFlows>
+</SharedFlowBundle>

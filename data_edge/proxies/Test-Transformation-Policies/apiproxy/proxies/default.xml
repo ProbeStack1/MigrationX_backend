@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ProxyEndpoint name="default">
+    <Description/>
+    <FaultRules/>
+    <Flows>
+        <Flow name="transformation-flow">
+            <Description>Flow with transformation-needed policies</Description>
+            <Request>
+                <Step>
+                    <Name>JavaCallout-Policy</Name>
+                </Step>
+                <Step>
+                    <Name>Python-Policy</Name>
+                </Step>
+            </Request>
+            <Response>
+                <Step>
+                    <Name>Javascript-Policy</Name>
+                </Step>
+            </Response>
+        </Flow>
+    </Flows>
+    <HTTPProxyConnection>
+        <BasePath>/test-transformation</BasePath>
+        <Properties/>
+        <VirtualHost>default</VirtualHost>
+    </HTTPProxyConnection>
+    <RouteRule name="default">
+        <TargetEndpoint>default</TargetEndpoint>
+    </RouteRule>
+</ProxyEndpoint>

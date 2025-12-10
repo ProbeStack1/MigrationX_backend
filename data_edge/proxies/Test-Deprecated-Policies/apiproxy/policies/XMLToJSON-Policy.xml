@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<XMLToJSON continueOnError="false" enabled="true" name="XMLToJSON-Policy">
+    <DisplayName>XML to JSON Policy</DisplayName>
+    <Properties/>
+    <Source>request</Source>
+    <OutputVariable>json_output</OutputVariable>
+    <Options>
+        <RecognizeNumber>true</RecognizeNumber>
+        <RecognizeBoolean>true</RecognizeBoolean>
+        <RecognizeNull>true</RecognizeNull>
+    </Options>
+</XMLToJSON>
