@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - ankit_logger_changes
+      - logger_changes
+      - main
 
 # Define environment variables
 env:
