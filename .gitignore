@@ -316,3 +316,5 @@ gcloud-config/
 # Azure
 .azure/
 
+*.pyc
+__pycache__/
