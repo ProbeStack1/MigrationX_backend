@@ -26,23 +26,35 @@ logger = logging.getLogger(__name__)
 class GCSAssessmentService:
     """Service for performing assessment with data from Google Cloud Storage"""
     
-    def __init__(self, bucket_name: str, gcs_prefix: str = "", firestore_client=None):
+    def __init__(self, bucket_name: str, firestore_client=None, 
+                 organization: str = None, environment: str = None, transaction_id: str = None):
         """
         Initialize GCS Assessment Service
         
         Args:
             bucket_name: GCS bucket name containing assessment data
-            gcs_prefix: Optional prefix path in GCS bucket (e.g., "apigee-edge-data/")
             firestore_client: Firestore client instance for persisting results
+            organization: Apigee organization name (used to construct GCS path)
+            environment: Apigee environment name (used to construct GCS path)
+            transaction_id: Transaction ID for tracking
         """
         if not GCS_AVAILABLE:
             raise ImportError("google-cloud-storage is not installed. Install it with: pip install google-cloud-storage")
         
+        if not organization or not environment:
+            raise ValueError("organization and environment are required to construct GCS path")
+        
         self.bucket_name = bucket_name
-        self.gcs_prefix = gcs_prefix.rstrip("/") + "/" if gcs_prefix else ""
         self.firestore_client = firestore_client
         self.operation_id = generate_operation_id()
         self.gcs_failures_count = 0  # Track number of GCS read failures
+        self.organization = organization
+        self.environment = environment
+        self.transaction_id = transaction_id
+        
+        # Automatically construct base GCS prefix from organization and environment
+        # Structure: {organization}/{environment}/
+        self.gcs_prefix = f"{organization}/{environment}/"
         
         # Initialize GCS client
         try:
@@ -66,7 +78,14 @@ class GCSAssessmentService:
         """
         log_info("=" * 80, self.operation_id, "ASSESSMENT", "V2")
         log_info("🚀 Starting V2 assessment workflow", self.operation_id, "ASSESSMENT", "V2",
-                metadata={"operation_id": self.operation_id, "bucket": self.bucket_name, "prefix": self.gcs_prefix})
+                metadata={
+                    "operation_id": self.operation_id,
+                    "bucket": self.bucket_name,
+                    "prefix": self.gcs_prefix,
+                    "organization": self.organization,
+                    "environment": self.environment,
+                    "transaction_id": self.transaction_id
+                })
         
         try:
             # Step 1: Fetch data from GCS
@@ -458,7 +477,8 @@ class GCSAssessmentService:
     def _fetch_target_servers_from_gcs(self) -> List[Dict[str, Any]]:
         """Fetch and parse target servers from GCS (non-blocking - continues on individual failures)"""
         servers = []
-        servers_prefix = f"{self.gcs_prefix}targetservers/env/"
+        # Structure: {organization}/{environment}/targetservers/env/{environment}/
+        servers_prefix = f"{self.gcs_prefix}targetservers/env/{self.environment}/"
         
         try:
             blobs = list(self.bucket.list_blobs(prefix=servers_prefix))
@@ -522,7 +542,8 @@ class GCSAssessmentService:
     def _fetch_kvms_from_gcs(self) -> List[Dict[str, Any]]:
         """Fetch and parse KVMs from GCS (non-blocking - continues on individual failures)"""
         kvms = []
-        kvms_prefix = f"{self.gcs_prefix}keyvaluemaps/env/"
+        # Structure: {organization}/{environment}/keyvaluemaps/env/{environment}/
+        kvms_prefix = f"{self.gcs_prefix}keyvaluemaps/env/{self.environment}/"
         
         try:
             blobs = list(self.bucket.list_blobs(prefix=kvms_prefix))
@@ -624,6 +645,9 @@ class GCSAssessmentService:
                 "timestamp": datetime.now(timezone.utc),
                 "bucket_name": self.bucket_name,
                 "gcs_prefix": self.gcs_prefix,
+                "organization": self.organization,
+                "environment": self.environment,
+                "transactionId": self.transaction_id,
                 "resource_type": resource_type,
                 "operation": operation,
                 "gcs_path": gcs_path,
@@ -701,25 +725,17 @@ class GCSAssessmentService:
             
             # Create document with assessment results
             # Include metadata for V2-specific information (not returned in response, but stored in Firestore)
+            # Note: assessment object already contains a 'summary' field, so we don't duplicate it here
             doc_data = {
                 "operation_id": self.operation_id,
                 "timestamp": datetime.now(timezone.utc),
                 "bucket": self.bucket_name,
                 "gcs_prefix": self.gcs_prefix,
+                "organization": self.organization,
+                "environment": self.environment,
+                "transactionId": self.transaction_id,
                 "assessment": assessment,
-                "gcs_failures_count": self.gcs_failures_count,
-                "summary": {
-                    "overall_status": assessment.get("overall_status"),
-                    "total_issues": assessment.get("total_issues", 0),
-                    "total_warnings": assessment.get("total_warnings", 0),
-                    "proxies_count": len(assessment.get("proxy_assessments", [])),
-                    "shared_flows_count": len(assessment.get("shared_flow_assessments", [])),
-                    "target_servers_count": len(assessment.get("target_server_assessments", [])),
-                    "kvms_count": len(assessment.get("kvm_assessments", [])),
-                    "api_products_count": len(assessment.get("api_product_assessments", [])),
-                    "apps_count": len(assessment.get("app_assessments", [])),
-                    "developers_count": len(assessment.get("developer_assessments", []))
-                }
+                "gcs_failures_count": self.gcs_failures_count
             }
             
             # Use operation_id as document ID for traceability

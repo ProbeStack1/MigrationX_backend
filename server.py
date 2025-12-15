@@ -1328,8 +1328,9 @@ async def assess_resources():
 # V2 Assessment endpoint with GCS support
 class AssessmentV2Request(BaseModel):
     """Request model for V2 assessment endpoint"""
-    bucket_name: str = Field(..., description="GCS bucket name containing assessment data")
-    gcs_prefix: str = Field(default="", description="Optional prefix path in GCS bucket")
+    organization: str = Field(..., description="Apigee organization name")
+    environment: str = Field(..., description="Apigee environment name")
+    transactionId: str = Field(..., description="Transaction ID for tracking")
 
 
 @api_router.post("/assess/v2")
@@ -1338,14 +1339,20 @@ async def assess_resources_v2(request: AssessmentV2Request):
     V2: Perform migration assessment with dependency analysis using data from Google Cloud Storage.
     
     This endpoint:
-    - Reads assessment input data from the configured GCS bucket
+    - Reads assessment input data from the configured GCS bucket (from environment variable)
     - Executes the assessment workflow
     - Persists results to Firestore collection 'assessment_apigee_results'
     - Returns comprehensive assessment results with structured logging
     
     Request Body:
-    - bucket_name: GCS bucket name (required)
-    - gcs_prefix: Optional prefix path in bucket (default: "")
+    - organization: Apigee organization name (required)
+    - environment: Apigee environment name (required)
+    - transactionId: Transaction ID for tracking (required)
+    
+    The API automatically constructs the GCS path as: {organization}/{environment}/
+    
+    Environment Variables:
+    - GCS_ASSESSMENT_BUCKET_NAME: GCS bucket name containing assessment data (required)
     
     Returns:
     - Assessment results with operation_id for traceability
@@ -1353,11 +1360,21 @@ async def assess_resources_v2(request: AssessmentV2Request):
     from utils.gcs_assessment_service import GCSAssessmentService
     
     try:
+        # Read bucket name from environment variable
+        bucket_name = os.environ.get("GCS_ASSESSMENT_BUCKET_NAME", "").strip()
+        if not bucket_name:
+            raise HTTPException(
+                status_code=400,
+                detail="GCS_ASSESSMENT_BUCKET_NAME environment variable is not set. Please configure the bucket name."
+            )
+        
         # Initialize GCS assessment service
         service = GCSAssessmentService(
-            bucket_name=request.bucket_name,
-            gcs_prefix=request.gcs_prefix,
-            firestore_client=firestore_db_x
+            bucket_name=bucket_name,
+            firestore_client=firestore_db_x,
+            organization=request.organization,
+            environment=request.environment,
+            transaction_id=request.transactionId
         )
         
         # Run complete assessment workflow
