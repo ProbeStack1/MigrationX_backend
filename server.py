@@ -1324,6 +1324,68 @@ async def assess_resources():
         logger.error(f"Assessment failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# V2 Assessment endpoint with GCS support
+class AssessmentV2Request(BaseModel):
+    """Request model for V2 assessment endpoint"""
+    bucket_name: str = Field(..., description="GCS bucket name containing assessment data")
+    gcs_prefix: str = Field(default="", description="Optional prefix path in GCS bucket")
+
+
+@api_router.post("/assess/v2")
+async def assess_resources_v2(request: AssessmentV2Request):
+    """
+    V2: Perform migration assessment with dependency analysis using data from Google Cloud Storage.
+    
+    This endpoint:
+    - Reads assessment input data from the configured GCS bucket
+    - Executes the assessment workflow
+    - Persists results to Firestore collection 'assessment_apigee_results'
+    - Returns comprehensive assessment results with structured logging
+    
+    Request Body:
+    - bucket_name: GCS bucket name (required)
+    - gcs_prefix: Optional prefix path in bucket (default: "")
+    
+    Returns:
+    - Assessment results with operation_id for traceability
+    """
+    from utils.gcs_assessment_service import GCSAssessmentService
+    
+    try:
+        # Initialize GCS assessment service
+        service = GCSAssessmentService(
+            bucket_name=request.bucket_name,
+            gcs_prefix=request.gcs_prefix,
+            firestore_client=firestore_db_x
+        )
+        
+        # Run complete assessment workflow
+        result = service.run_assessment()
+        
+        return result
+        
+    except ImportError as e:
+        logger.error(f"GCS Assessment Service import failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"GCS Assessment Service not available: {str(e)}. Ensure google-cloud-storage is installed."
+        )
+    except RuntimeError as e:
+        logger.error(f"GCS Assessment workflow failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Assessment workflow failed: {str(e)}"
+        )
+    except Exception as e:
+        logger.error(f"V2 Assessment failed: {str(e)}")
+        logger.exception(e)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Assessment failed: {str(e)}"
+        )
+
+
 @api_router.get("/dependencies")
 async def get_dependencies():
     """Get dependency graph for all resources"""
