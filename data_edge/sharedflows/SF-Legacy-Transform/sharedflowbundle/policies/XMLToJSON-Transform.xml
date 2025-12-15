@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<XMLToJSON continueOnError="false" enabled="true" name="XMLToJSON-Transform">
+    <DisplayName>XML to JSON Transform</DisplayName>
+    <Properties/>
+    <Source>request</Source>
+    <OutputVariable>json_payload</OutputVariable>
+</XMLToJSON>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Javascript continueOnError="false" enabled="true" name="Javascript-Policy">
+    <DisplayName>JavaScript Policy</DisplayName>
+    <Properties>
+        <Property name="js-resource">javascript-code.js</Property>
+    </Properties>
+    <ResourceURL>jsc://javascript-code.js</ResourceURL>
+    <IncludeURL>jsc://common-functions.js</IncludeURL>
+</Javascript>

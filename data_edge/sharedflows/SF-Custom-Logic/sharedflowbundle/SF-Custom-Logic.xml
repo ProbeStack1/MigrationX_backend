@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<SharedFlowBundle revision="1" name="SF-Custom-Logic">
+    <ConfigurationVersion majorVersion="4" minorVersion="0"/>
+    <CreatedAt>1640995200000</CreatedAt>
+    <CreatedBy>test@example.com</CreatedBy>
+    <Description>Custom logic shared flow with transformation-needed policies</Description>
+    <DisplayName>Custom Logic SharedFlow</DisplayName>
+    <LastModifiedAt>1640995200000</LastModifiedAt>
+    <LastModifiedBy>test@example.com</LastModifiedBy>
+    <Policies>
+        <Policy>Javascript-CustomLogic</Policy>
+        <Policy>ServiceCallout-External</Policy>
+    </Policies>
+    <SharedFlows>
+        <SharedFlow>default</SharedFlow>
+    </SharedFlows>
+</SharedFlowBundle>

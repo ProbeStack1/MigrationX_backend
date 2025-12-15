@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<APIProxy revision="1" name="Test-Transformation-Policies">
+    <ConfigurationVersion majorVersion="4" minorVersion="0"/>
+    <CreatedAt>1640995200000</CreatedAt>
+    <CreatedBy>test@example.com</CreatedBy>
+    <Description>Test proxy with transformation-needed policies</Description>
+    <DisplayName>Test Transformation Policies</DisplayName>
+    <LastModifiedAt>1640995200000</LastModifiedAt>
+    <LastModifiedBy>test@example.com</LastModifiedBy>
+    <Policies>
+        <Policy>JavaCallout-Policy</Policy>
+        <Policy>Python-Policy</Policy>
+        <Policy>Javascript-Policy</Policy>
+    </Policies>
+    <ProxyEndpoints>
+        <ProxyEndpoint>default</ProxyEndpoint>
+    </ProxyEndpoints>
+    <Resources/>
+    <TargetEndpoints>
+        <TargetEndpoint>default</TargetEndpoint>
+    </TargetEndpoints>
+</APIProxy>

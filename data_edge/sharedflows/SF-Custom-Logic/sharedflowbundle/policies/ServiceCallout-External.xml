@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ServiceCallout continueOnError="false" enabled="true" name="ServiceCallout-External">
+    <DisplayName>External Service Callout</DisplayName>
+    <Properties/>
+    <Request clearPayload="true" variable="external_request">
+        <IgnoreUnresolvedVariables>false</IgnoreUnresolvedVariables>
+        <URL>https://external-api.example.com/validate</URL>
+        <Verb>POST</Verb>
+    </Request>
+    <Response>external_response</Response>
+    <HTTPTargetConnection>
+        <URL>https://external-api.example.com</URL>
+    </HTTPTargetConnection>
+</ServiceCallout>

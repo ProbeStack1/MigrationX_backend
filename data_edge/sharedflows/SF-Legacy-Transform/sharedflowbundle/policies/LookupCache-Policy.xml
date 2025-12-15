@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<LookupCache continueOnError="false" enabled="true" name="LookupCache-Policy">
+    <DisplayName>Lookup Cache</DisplayName>
+    <Properties/>
+    <CacheKey>
+        <Prefix>cache_</Prefix>
+        <KeyFragment ref="request.queryparam.id"/>
+    </CacheKey>
+    <CacheLookupTimeoutInSeconds>30</CacheLookupTimeoutInSeconds>
+    <AssignTo>cached_response</AssignTo>
+</LookupCache>

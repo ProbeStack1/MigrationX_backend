@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<JavaCallout continueOnError="false" enabled="true" name="JavaCallout-Policy">
+    <DisplayName>Java Callout Policy</DisplayName>
+    <Properties>
+        <Property name="jar-resource">java-callout.jar</Property>
+    </Properties>
+    <ClassName>com.example.JavaCalloutClass</ClassName>
+    <ResourceURL>java://java-callout.jar</ResourceURL>
+</JavaCallout>

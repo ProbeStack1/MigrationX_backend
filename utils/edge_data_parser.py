@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 from typing import Dict, List, Any
 import logging
+import zipfile
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,14 @@ class EdgeDataParser:
                 "endpoints": []
             }
             
+            # Extract zip if directory doesn't exist
+            if not proxy_dir.exists():
+                try:
+                    with zipfile.ZipFile(zip_file, 'r') as zip_ref:
+                        zip_ref.extractall(proxy_dir)
+                except Exception as e:
+                    logger.warning(f"Failed to extract {zip_file}: {e}")
+            
             # Parse proxy details if directory exists
             if proxy_dir.exists():
                 # Parse policies
@@ -88,11 +97,34 @@ class EdgeDataParser:
             return flows
         
         for zip_file in flows_dir.glob("*.zip"):
+            flow_name = zip_file.stem
+            flow_dir = flows_dir / flow_name
+            
             flow_data = {
-                "name": zip_file.stem,
+                "name": flow_name,
                 "type": "Shared Flow",
-                "bundle_path": str(zip_file)
+                "bundle_path": str(zip_file),
+                "policies": []
             }
+            
+            # Extract zip if directory doesn't exist
+            if not flow_dir.exists():
+                try:
+                    with zipfile.ZipFile(zip_file, 'r') as zip_ref:
+                        zip_ref.extractall(flow_dir)
+                except Exception as e:
+                    logger.warning(f"Failed to extract {zip_file}: {e}")
+            
+            # Parse shared flow policies if directory exists
+            if flow_dir.exists():
+                policies_dir = flow_dir / "sharedflowbundle" / "policies"
+                if policies_dir.exists():
+                    for policy_file in policies_dir.glob("*.xml"):
+                        policy_data = self._parse_policy(policy_file)
+                        if policy_data:
+                            flow_data["policies"].append(policy_data)
+            
+            flow_data["policy_count"] = len(flow_data["policies"])
             flows.append(flow_data)
         
         return flows
@@ -253,22 +285,19 @@ class EdgeDataParser:
     def _parse_policy(self, policy_file: Path) -> Dict[str, Any]:
         """Parse policy XML file to extract policy type"""
         try:
-            # Simple XML parsing to get policy type
-            with open(policy_file, 'r') as f:
+            with open(policy_file, 'r', encoding='utf-8') as f:
                 content = f.read()
+                
                 # Extract policy type from XML root element
-                # This is a simplified approach
-                lines = content.split('\n')
-                for line in lines:
-                    line = line.strip()
-                    if line.startswith('<') and not line.startswith('<?xml'):
-                        # Extract tag name
-                        tag = line.split()[0].replace('<', '').replace('>', '')
-                        if tag and not tag.startswith('/'):
-                            return {
-                                "name": policy_file.stem,
-                                "type": tag
-                            }
+                import re
+                # Find the first XML tag that's not the XML declaration
+                match = re.search(r'<([a-zA-Z][a-zA-Z0-9_-]*)', content)
+                if match:
+                    policy_type = match.group(1)
+                    return {
+                        "name": policy_file.stem,
+                        "type": policy_type
+                    }
             return None
         except Exception as e:
             logger.error(f"Failed to parse policy {policy_file}: {e}")

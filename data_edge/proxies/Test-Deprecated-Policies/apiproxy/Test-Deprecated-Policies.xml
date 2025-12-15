@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<APIProxy revision="1" name="Test-Deprecated-Policies">
+    <ConfigurationVersion majorVersion="4" minorVersion="0"/>
+    <CreatedAt>1640995200000</CreatedAt>
+    <CreatedBy>test@example.com</CreatedBy>
+    <Description>Test proxy with deprecated policies for migration assessment</Description>
+    <DisplayName>Test Deprecated Policies</DisplayName>
+    <LastModifiedAt>1640995200000</LastModifiedAt>
+    <LastModifiedBy>test@example.com</LastModifiedBy>
+    <Policies>
+        <Policy>XMLToJSON-Policy</Policy>
+        <Policy>JSONToXML-Policy</Policy>
+        <Policy>SOAPValidation-Policy</Policy>
+        <Policy>StatsCollector-Policy</Policy>
+        <Policy>AccessEntity-Policy</Policy>
+    </Policies>
+    <ProxyEndpoints>
+        <ProxyEndpoint>default</ProxyEndpoint>
+    </ProxyEndpoints>
+    <Resources/>
+    <TargetEndpoints>
+        <TargetEndpoint>default</TargetEndpoint>
+    </TargetEndpoints>
+</APIProxy>

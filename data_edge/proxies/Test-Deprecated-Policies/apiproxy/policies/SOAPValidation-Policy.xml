@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<SOAPMessageValidation continueOnError="false" enabled="true" name="SOAPValidation-Policy">
+    <DisplayName>SOAP Message Validation</DisplayName>
+    <Properties/>
+    <Source>request</Source>
+    <ResourceURL>wsdl://sample.wsdl</ResourceURL>
+    <Element namespace="http://example.com/soap">soapOperation</Element>
+</SOAPMessageValidation>

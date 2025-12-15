@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<AccessEntity continueOnError="false" enabled="true" name="AccessEntity-Policy">
+    <DisplayName>Access Entity Policy</DisplayName>
+    <Properties/>
+    <EntityType>developer</EntityType>
+    <EntityIdentifier ref="request.queryparam.developer_email"/>
+    <SecondaryIdentifier ref="request.queryparam.app_name"/>
+</AccessEntity>
