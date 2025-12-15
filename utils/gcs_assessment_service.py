@@ -108,17 +108,10 @@ class GCSAssessmentService:
             
             log_info("=" * 80, self.operation_id, "ASSESSMENT", "V2")
             
+            # Return response structure matching V1 endpoint format
             return {
                 "success": True,
-                "assessment": assessment,
-                "operation_id": self.operation_id,
-                "metadata": {
-                    "bucket": self.bucket_name,
-                    "prefix": self.gcs_prefix,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "gcs_failures_count": self.gcs_failures_count,
-                    "note": f"{self.gcs_failures_count} GCS read failures occurred and were logged to Firestore collection 'gcs_read_failures'" if self.gcs_failures_count > 0 else None
-                }
+                "assessment": assessment
             }
             
         except Exception as e:
@@ -707,12 +700,14 @@ class GCSAssessmentService:
             collection_ref = self.firestore_client.collection('assessment_apigee_results')
             
             # Create document with assessment results
+            # Include metadata for V2-specific information (not returned in response, but stored in Firestore)
             doc_data = {
                 "operation_id": self.operation_id,
                 "timestamp": datetime.now(timezone.utc),
                 "bucket": self.bucket_name,
                 "gcs_prefix": self.gcs_prefix,
                 "assessment": assessment,
+                "gcs_failures_count": self.gcs_failures_count,
                 "summary": {
                     "overall_status": assessment.get("overall_status"),
                     "total_issues": assessment.get("total_issues", 0),
