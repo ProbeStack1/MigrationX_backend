@@ -23,7 +23,7 @@ idna==3.11
 iniconfig==2.3.0
 isort==7.0.0
 jmespath==1.0.1
-jq==1.10.0
+# jq==1.10.0  # Commented out: Requires native build tools on Windows. Not used in codebase.
 markdown-it-py==4.0.0
 mccabe==0.7.0
 mdurl==0.1.2
