@@ -201,15 +201,21 @@ class GCSAssessmentService:
                 # Parse policies
                 policies_dir = extract_dir / "apiproxy" / "policies"
                 if policies_dir.exists():
-                    for policy_file in policies_dir.glob("*.xml"):
+                    policy_files = list(policies_dir.glob("*.xml"))
+                    logger.debug(f"Found {len(policy_files)} policy XML files for proxy {proxy_name}")
+                    for policy_file in policy_files:
                         try:
                             with open(policy_file, 'r', encoding='utf-8') as f:
                                 content = f.read()
                                 policy_data = self._parse_policy_xml(content)
                                 if policy_data:
                                     proxy_data["policies"].append(policy_data)
+                                else:
+                                    logger.warning(f"Failed to parse policy data from {policy_file.name} for proxy {proxy_name}")
                         except Exception as e:
                             logger.warning(f"Failed to parse policy {policy_file}: {e}")
+                else:
+                    logger.debug(f"Policies directory does not exist for proxy {proxy_name}: {policies_dir}")
                 
                 # Parse targets
                 targets_dir = extract_dir / "apiproxy" / "targets"
@@ -224,6 +230,13 @@ class GCSAssessmentService:
                         proxy_data["endpoints"].append(endpoint_file.stem)
                 
                 proxy_data["policy_count"] = len(proxy_data["policies"])
+                if policies_dir.exists():
+                    total_policy_files = len(list(policies_dir.glob("*.xml")))
+                    if total_policy_files != len(proxy_data["policies"]):
+                        logger.warning(
+                            f"Proxy {proxy_name}: Found {total_policy_files} policy XML files, "
+                            f"but only parsed {len(proxy_data['policies'])} policies successfully"
+                        )
                 proxies.append(proxy_data)
                 
             except Exception as e:
@@ -680,18 +693,29 @@ class GCSAssessmentService:
         """Parse policy XML content to extract policy type"""
         try:
             import re
-            # Find the first XML tag that's not the XML declaration
-            match = re.search(r'<([a-zA-Z][a-zA-Z0-9_-]*)', content)
+            # Skip XML declaration and whitespace, find first actual tag
+            # Match pattern: <TagName (ignoring <?xml and comments)
+            content_clean = content.strip()
+            # Skip XML declaration if present
+            if content_clean.startswith('<?xml'):
+                # Find the first tag after XML declaration
+                match = re.search(r'<\?xml[^>]*>\s*<([a-zA-Z][a-zA-Z0-9_-]*)', content_clean)
+            else:
+                # Find the first XML tag
+                match = re.search(r'<([a-zA-Z][a-zA-Z0-9_-]*)', content_clean)
+            
             if match:
                 policy_type = match.group(1)
-                # Try to extract name from content
+                # Try to extract name from content (look for name attribute)
                 name_match = re.search(r'name=["\']([^"\']+)["\']', content)
                 policy_name = name_match.group(1) if name_match else "unknown"
                 return {
                     "name": policy_name,
                     "type": policy_type
                 }
-            return None
+            else:
+                logger.warning(f"Could not find valid XML tag in policy content (first 200 chars: {content[:200]})")
+                return None
         except Exception as e:
             logger.warning(f"Failed to parse policy XML: {e}")
             return None
